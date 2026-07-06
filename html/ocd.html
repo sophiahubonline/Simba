@@ -3,9 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIMBA PROJECT - Hero's Journey</title>
+    <title>OCD - SIMBA PROJECT</title>
     <link href="https://fonts.googleapis.com/css2?family=Forum&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .theme-page-header {
+            background-image: url('../content/img/ocd.png');
+        }
+    </style>
 </head>
 <body>
     <!-- HEADER -->
@@ -14,16 +19,14 @@
             <div class="logo-section">
                 <img src="../content/img/simba.png" alt="SIMBA PROJECT Logo" class="logo">
             </div>
-            
             <nav class="navbar">
                 <ul class="nav-list">
-                    <li><a href="index.html" class="nav-link active">Thematics</a></li>
+                    <li><a href="index.html" class="nav-link">Thematics</a></li>
                     <li><a href="test.html" class="nav-link">Test</a></li>
                     <li><a href="contact.html" class="nav-link">Contact Us</a></li>
                     <li><a href="about-us.html" class="nav-link">About Us</a></li>
                 </ul>
             </nav>
-            
             <div class="auth-section">
                 <button class="sign-up-btn">Sign Up</button>
                 <button class="login-btn">Login</button>
@@ -31,35 +34,18 @@
         </div>
     </header>
 
-    <!-- VIDEO HERO SECTION -->
-    <section class="hero-video">
-        <video autoplay muted loop class="background-video">
-            <source src="../content/video/introduction_video.mp4" type="video/mp4">
-        </video>
-        <div class="hero-overlay"></div>
-        <div class="hero-content">
-            <p class="hero-subtitle">a new perspective on mental health</p>
-            <h1 class="hero-title">your struggle is a call to adventure</h1>
-        </div>
-    </section>
+    <!-- THEME PAGE HEADER -->
+    <div class="theme-page-header">
+        <h1>OCD</h1>
+    </div>
 
-    <!-- CATEGORIES & THEMES SECTION -->
-    <section class="categories-section">
-        <div class="categories-container">
-            <!-- CATEGORIES BAR -->
-            <div class="categories-bar">
-                <button class="category-tab active" data-category="relationships">🌍 Relationships</button>
-                <button class="category-tab" data-category="mental-health">🧠 Mental Health</button>
-                <button class="category-tab" data-category="personal-growth">🌱 Growth</button>
-                <button class="category-tab" data-category="neurodiversity">🧩 Neurodiversity</button>
-                <button class="category-tab" data-category="mind-body">💭 Mind & Body</button>
-            </div>
-
-            <!-- THEMES GRID -->
-            <div class="themes-grid" id="themesGrid">
-            </div>
-        </div>
-    </section>
+    <!-- CONTENT -->
+    <div class="theme-page-content">
+        <h2>Understanding OCD</h2>
+        <p>Obsessive-Compulsive Disorder (OCD) is a mental health condition characterized by two main components: obsessions and compulsions.</p>
+        <p>Obsessions are intrusive, unwanted thoughts, images, or urges that cause significant anxiety or distress. Compulsions are repetitive behaviors or mental acts that a person feels driven to perform in response to these obsessions.</p>
+        <p>This page will help you understand the nature of OCD, its symptoms, and evidence-based strategies for managing it. Remember, recovery is possible with proper support and treatment.</p>
+    </div>
 
     <!-- FOOTER -->
     <footer class="footer">

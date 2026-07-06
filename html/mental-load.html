@@ -3,27 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIMBA PROJECT - Hero's Journey</title>
+    <title>Mental Load - SIMBA PROJECT</title>
     <link href="https://fonts.googleapis.com/css2?family=Forum&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .theme-page-header {
+            background-image: url('../content/img/mental-load.png');
+        }
+    </style>
 </head>
 <body>
-    <!-- HEADER -->
     <header class="header">
         <div class="header-container">
             <div class="logo-section">
                 <img src="../content/img/simba.png" alt="SIMBA PROJECT Logo" class="logo">
             </div>
-            
             <nav class="navbar">
                 <ul class="nav-list">
-                    <li><a href="index.html" class="nav-link active">Thematics</a></li>
+                    <li><a href="index.html" class="nav-link">Thematics</a></li>
                     <li><a href="test.html" class="nav-link">Test</a></li>
                     <li><a href="contact.html" class="nav-link">Contact Us</a></li>
                     <li><a href="about-us.html" class="nav-link">About Us</a></li>
                 </ul>
             </nav>
-            
             <div class="auth-section">
                 <button class="sign-up-btn">Sign Up</button>
                 <button class="login-btn">Login</button>
@@ -31,37 +33,17 @@
         </div>
     </header>
 
-    <!-- VIDEO HERO SECTION -->
-    <section class="hero-video">
-        <video autoplay muted loop class="background-video">
-            <source src="../content/video/introduction_video.mp4" type="video/mp4">
-        </video>
-        <div class="hero-overlay"></div>
-        <div class="hero-content">
-            <p class="hero-subtitle">a new perspective on mental health</p>
-            <h1 class="hero-title">your struggle is a call to adventure</h1>
-        </div>
-    </section>
+    <div class="theme-page-header">
+        <h1>Mental Load</h1>
+    </div>
 
-    <!-- CATEGORIES & THEMES SECTION -->
-    <section class="categories-section">
-        <div class="categories-container">
-            <!-- CATEGORIES BAR -->
-            <div class="categories-bar">
-                <button class="category-tab active" data-category="relationships">🌍 Relationships</button>
-                <button class="category-tab" data-category="mental-health">🧠 Mental Health</button>
-                <button class="category-tab" data-category="personal-growth">🌱 Growth</button>
-                <button class="category-tab" data-category="neurodiversity">🧩 Neurodiversity</button>
-                <button class="category-tab" data-category="mind-body">💭 Mind & Body</button>
-            </div>
+    <div class="theme-page-content">
+        <h2>Understanding Mental Load</h2>
+        <p>Mental load refers to the cognitive burden of managing tasks, responsibilities, and mental processes. It includes both the effort required to remember tasks and the emotional weight of responsibility.</p>
+        <p>In today's fast-paced world, mental load has increased significantly due to constant connectivity, multitasking, and information overload. This can lead to fatigue, reduced decision-making capacity, and mental exhaustion.</p>
+        <p>Discover strategies to reduce cognitive overwhelm, prioritize effectively, delegate tasks, and restore mental clarity and focus.</p>
+    </div>
 
-            <!-- THEMES GRID -->
-            <div class="themes-grid" id="themesGrid">
-            </div>
-        </div>
-    </section>
-
-    <!-- FOOTER -->
     <footer class="footer">
         <div class="footer-container">
             <div class="footer-content">
