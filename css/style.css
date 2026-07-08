@@ -5,6 +5,36 @@
     box-sizing: border-box;
 }
 
+/* Local font faces (place font files in ../content/fonts/) */
+@font-face {
+    font-family: 'Montserrat';
+    src: url('../content/fonts/Montserrat/static/Montserrat-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Montserrat';
+    src: url('../content/fonts/Montserrat/static/Montserrat-SemiBold.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Montserrat';
+    src: url('../content/fonts/Montserrat/static/Montserrat-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Forum';
+    src: url('../content/fonts/Forum/Forum-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
 :root {
     --color-cream: #E8E1D6;
     --color-orange-dark: #B8651C;
@@ -116,6 +146,43 @@ body {
     gap: 1.2rem;
     flex: 0 0 auto;
 }
+
+/* Profile thumbnail and logout styling */
+.profile-btn {
+    background: transparent;
+    border: none;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.profile-btn img.profile-thumb {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    background: transparent;
+    display: block;
+}
+.logout-btn {
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.04);
+    color: var(--color-cream);
+    font-weight:600;
+    cursor:pointer;
+    transition: all 0.18s ease;
+}
+.logout-btn:hover {
+    background: rgba(255,255,255,0.08);
+    transform: translateY(-2px);
+}
+
+/* ensure no white square around profile images in header */
+/* keep sign-up/login styles intact; profile and logout are styled explicitly above */
 
 .sign-up-btn,
 .login-btn {
@@ -633,3 +700,131 @@ body {
         padding: 1.5rem;
     }
 }
+
+/* COOKIE BANNER STYLES */
+.cookie-banner {
+    position: fixed;
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    background: rgba(31,46,68,0.95);
+    color: #fff;
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    z-index: 9999;
+}
+.cookie-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+.cookie-inner p { margin: 0; color: #f1f1f1; }
+.cookie-actions { display: flex; gap: 0.6rem; align-items: center; }
+.btn { background: var(--color-orange); color: white; border: none; padding: 0.5rem 0.9rem; border-radius: 6px; cursor: pointer; font-weight:600; }
+.btn-secondary { background: transparent; color: #f1f1f1; border: 1px solid rgba(255,255,255,0.15); }
+.btn-link { background: transparent; color: #f1f1f1; border: none; text-decoration: underline; }
+
+@media (max-width: 480px) {
+    .cookie-inner { flex-direction: column; align-items: stretch; }
+    .cookie-actions { justify-content: flex-end; }
+}
+
+/* Footer links styling */
+.footer-links { margin-top: 0.6rem; }
+.footer-links a { color: var(--color-cream); text-decoration: none; padding: 6px 10px; border-radius: 8px; background: rgba(255,255,255,0.03); transition: background 0.2s ease, color 0.2s ease; }
+.footer-links a:hover { background: rgba(255,255,255,0.08); color: var(--color-orange-light); }
+.footer-links a + a { margin-left: 0.6rem; }
+
+/* Cookie banner refinement */
+.cookie-banner { border-left: 4px solid var(--color-orange); }
+.cookie-inner p { flex: 1 1 60%; margin-right: 1rem; }
+.cookie-actions { flex: 0 0 auto; }
+
+/* Login page styles */
+.auth-page {
+    padding: 4rem 2rem;
+    display: flex;
+    justify-content: center;
+}
+
+/* Modern profile page styles */
+.profile-page {
+    padding: 3rem 2rem;
+    display: flex;
+    justify-content: center;
+    background: linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0.4));
+}
+.profile-card {
+    width: 100%;
+    max-width: 1100px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.9), #fff);
+    border-radius: 16px;
+    padding: 1.2rem;
+    box-shadow: 0 20px 60px rgba(31,46,68,0.12);
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 1.5rem;
+    align-items: start;
+}
+.profile-sidebar {
+    background: linear-gradient(180deg,#ffffff,#fbfbfb);
+    padding: 1.2rem;
+    border-radius: 12px;
+    text-align: center;
+    position: relative;
+}
+.profile-avatar {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 6px solid white;
+    box-shadow: 0 6px 24px rgba(31,46,68,0.14);
+    margin: -70px auto 10px auto;
+    background: transparent;
+}
+.profile-name {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-top: 0.6rem;
+    color: var(--color-navy-dark);
+}
+.profile-bio {
+    margin-top: 0.6rem;
+    color: var(--color-blue-light);
+    font-size: 0.98rem;
+}
+.profile-actions { display:flex; gap:0.6rem; justify-content:center; margin-top:1rem; }
+.btn-edit { background: transparent; border: 2px solid var(--color-orange); color: var(--color-orange-dark); padding: 0.5rem 0.8rem; border-radius: 10px; font-weight:700; }
+.btn-primary { background: linear-gradient(90deg,var(--color-orange-dark),var(--color-orange)); color:white; border:none; padding:0.6rem 1rem; border-radius:10px; font-weight:700 }
+
+.profile-main {
+    padding: 1.2rem;
+}
+.profile-section { background:white; padding:1rem; border-radius:12px; box-shadow: 0 8px 30px rgba(31,46,68,0.06); margin-bottom:1rem; }
+.profile-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 0.8rem; }
+.profile-stat { padding:1rem; border-radius:10px; background: linear-gradient(180deg,#fff,#fafafa); text-align:center }
+.profile-stat h4 { font-size:1.1rem; margin-bottom:0.4rem }
+.profile-history li { padding:0.6rem 0; border-bottom:1px dashed #eee }
+
+@media (max-width: 900px) {
+    .profile-card { grid-template-columns: 1fr; }
+    .profile-avatar { margin-top: 0; }
+}
+.auth-card {
+    width: 420px;
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 10px 40px rgba(31,46,68,0.12);
+}
+.auth-card h2 { margin-bottom: 1rem; color: var(--color-navy); }
+.form-group { margin-bottom: 1rem; }
+.form-group label { display:block; margin-bottom:0.4rem; font-weight:600; color:var(--color-navy); }
+.form-group input { width:100%; padding:0.7rem; border-radius:8px; border:1px solid #e6e6e6; }
+.auth-actions { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-top:1rem; }
+.auth-actions .btn { padding:0.6rem 1.1rem; }
+.auth-footer { margin-top:1rem; text-align:center; font-size:0.95rem; }

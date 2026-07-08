@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - SIMBA PROJECT</title>
+    <link rel="icon" type="image/png" href="../content/img/simba.png">
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="header-container">
+            <div class="logo-section">
+                <img src="../content/img/simba.png" alt="SIMBA PROJECT Logo" class="logo">
+            </div>
+            
+            <nav class="navbar">
+                <ul class="nav-list">
+                    <li><a href="index.html" class="nav-link">Thematics</a></li>
+                    <li><a href="test.html" class="nav-link">Test</a></li>
+                    <li><a href="contact.html" class="nav-link">Contact Us</a></li>
+                    <li><a href="about-us.html" class="nav-link">About Us</a></li>
+                </ul>
+            </nav>
+            
+            <div class="auth-section">
+                <button class="sign-up-btn">Sign Up</button>
+                <button class="login-btn">Login</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="auth-page">
+        <div class="auth-card">
+            <h2>Login</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">E‑Mail</label>
+                    <input id="email" name="email" type="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input id="password" name="password" type="password" required minlength="6">
+                </div>
+                <div class="auth-actions">
+                    <label style="display:flex;align-items:center;gap:0.4rem;"><input type="checkbox" id="remember"> Remember me</label>
+                    <div>
+                        <button type="submit" class="btn">Login</button>
+                    </div>
+                </div>
+                <div class="auth-footer">
+                    <a href="contact.html">Forgot password?</a>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async function(e){
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            if (!email.includes('@')) { alert('Please enter a valid email address'); return; }
+            try {
+                // quick ping to detect if server is running
+                const ping = await fetch('/api/ping');
+                if (!ping.ok) { alert('API not reachable — please start the server.'); return; }
+            } catch (err) {
+                alert('API not reachable — start the server (ex: cd server && npm start)'); return;
+            }
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({email, password}),
+                    credentials: 'include'
+                });
+                const data = await res.json();
+                if (!res.ok) { alert(data.error || 'Error'); return; }
+                // success - store session locally so header updates across pages
+                try { localStorage.setItem('simba_user', JSON.stringify({ email })); } catch (e) {}
+                window.location.href = 'index.html';
+            } catch (err) {
+                alert('Network error — check the server console');
+            }
+        });
+    </script>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-content">
+                <p>&copy; 2024 SIMBA PROJECT - Hero's Journey. All rights reserved.</p>
+                <p class="footer-links"><a href="impressum.html">Impressum</a> | <a href="datenschutz.html">Datenschutzerklärung</a></p>
+            </div>
+            <div class="social-links">
+                <a href="https://youtube.com" target="_blank" class="social-icon">
+                    <img src="../content/img/youtube.png" alt="YouTube">
+                </a>
+                <a href="https://instagram.com" target="_blank" class="social-icon">
+                    <img src="../content/img/instagram.png" alt="Instagram">
+                </a>
+                <a href="https://wa.me" target="_blank" class="social-icon">
+                    <img src="../content/img/whatsapp.png" alt="WhatsApp">
+                </a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- COOKIE BANNER -->
+    <div id="cookieBanner" class="cookie-banner" aria-live="polite" hidden>
+        <div class="cookie-inner">
+            <p>Wir verwenden Cookies, um diese Website zu verbessern. Mehr dazu in unserer <a href="datenschutz.html">Datenschutzerklärung</a>.</p>
+            <div class="cookie-actions">
+                <button id="acceptCookies" class="btn">Alle akzeptieren</button>
+                <button id="rejectCookies" class="btn btn-secondary">Ablehnen</button>
+                <button id="manageCookies" class="btn btn-link">Einstellungen</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/script.js"></script>
+</body>
+</html>

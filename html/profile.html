@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - SIMBA PROJECT</title>
+    <link rel="icon" type="image/png" href="../content/img/simba.png">
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="header-container">
+            <div class="logo-section">
+                <img src="../content/img/simba.png" alt="SIMBA PROJECT Logo" class="logo">
+            </div>
+            <nav class="navbar">
+                <ul class="nav-list">
+                    <li><a href="index.html" class="nav-link">Thematics</a></li>
+                    <li><a href="test.html" class="nav-link">Test</a></li>
+                    <li><a href="contact.html" class="nav-link">Contact Us</a></li>
+                    <li><a href="about-us.html" class="nav-link">About Us</a></li>
+                </ul>
+            </nav>
+            <div class="auth-section">
+                <button class="sign-up-btn">Sign Up</button>
+                <button class="login-btn">Login</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="profile-page">
+        <div class="profile-card">
+            <aside class="profile-sidebar">
+                <img id="profile_avatar" class="profile-avatar" src="../content/img/profil.png" alt="avatar" />
+                <div id="profile_name" class="profile-name">Your name</div>
+                <div id="profile_bio" class="profile-bio">Your bio</div>
+                <div class="profile-actions">
+                    <button id="edit_profile_btn" class="btn-edit" type="button">Edit profile</button>
+                    <button id="message_btn" class="btn-primary">Message</button>
+                </div>
+                <div style="margin-top:1rem" class="profile-section">
+                    <div style="font-weight:700;color:var(--color-navy);margin-bottom:6px">Quick stats</div>
+                    <div class="profile-grid">
+                        <div class="profile-stat"><h4>Tests</h4><div>0</div></div>
+                        <div class="profile-stat"><h4>Avg score</h4><div>-</div></div>
+                        <div class="profile-stat"><h4>Rank</h4><div>-</div></div>
+                    </div>
+                </div>
+            </aside>
+            <section class="profile-main">
+                <div id="profile_editor" class="profile-section" style="display:none;">
+                    <h3>Edit profile</h3>
+                    <div style="margin-top:0.6rem"><label>Display name</label><input id="editor_name" type="text" style="width:100%;padding:0.7rem;border-radius:10px;border:1px solid #d6d0c6;margin-top:0.35rem" /></div>
+                    <div style="margin-top:0.6rem"><label>Bio</label><textarea id="editor_bio" rows="4" style="width:100%;padding:0.7rem;border-radius:10px;border:1px solid #d6d0c6;margin-top:0.35rem;resize:vertical"></textarea></div>
+                    <div style="margin-top:0.6rem"><label>Profile photo</label><input id="editor_avatar" type="file" accept="image/*" style="display:block;margin-top:0.35rem" /></div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:0.75rem" id="editor_avatar_choices"></div>
+                    <div style="display:flex;gap:0.75rem;margin-top:0.9rem;flex-wrap:wrap">
+                        <button id="save_profile_btn" class="btn-primary" type="button">Save changes</button>
+                        <button id="cancel_profile_btn" class="btn-edit" type="button">Cancel</button>
+                    </div>
+                </div>
+                <div class="profile-section">
+                    <h3>About</h3>
+                    <p id="about_text">This is your profile. You can update your display name, bio and avatar.</p>
+                </div>
+                <div class="profile-section">
+                    <h3>Score history</h3>
+                    <p>(No tests yet) — historique à venir</p>
+                    <ul id="scores_list" class="profile-history"></ul>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-content">
+                <p>&copy; 2024 SIMBA PROJECT - Hero's Journey. All rights reserved.</p>
+                <p class="footer-links"><a href="impressum.html">Impressum</a> | <a href="datenschutz.html">Datenschutzerklärung</a></p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../js/script.js"></script>
+    <script>
+        // render profile page using functions in script.js
+        async function loadProfilePage() {
+            const current = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(e){ return null; } })();
+            if (!current || !current.email) {
+                document.getElementById('profile_name').innerText = 'Not logged in';
+                document.getElementById('profile_bio').innerText = 'Please login to see your profile.';
+                return;
+            }
+
+            let profile = {};
+            try { profile = JSON.parse(localStorage.getItem('simba_profile_'+current.email)||'{}'); } catch(e){}
+            if (!profile || Object.keys(profile).length === 0) {
+                try {
+                    const ping = await fetch('/api/ping');
+                    if (ping.ok) {
+                        const res = await fetch('/api/profile', { credentials: 'include' });
+                        if (res.ok) {
+                            const d = await res.json();
+                            profile = d.profile || {};
+                        }
+                    }
+                } catch(e){}
+            }
+
+            document.getElementById('profile_avatar').src = profile.avatar || '../content/img/profil.png';
+            document.getElementById('profile_name').innerText = profile.name || current.email;
+            document.getElementById('profile_bio').innerText = profile.bio || '';
+
+            const scores = profile.scores || [];
+            const ul = document.getElementById('scores_list');
+            ul.innerHTML = '';
+            if (scores.length === 0) { ul.innerHTML = '<li>No scores yet</li>'; }
+            else scores.forEach(s => { const li = document.createElement('li'); li.innerText = s; ul.appendChild(li); });
+
+            const editor = document.getElementById('profile_editor');
+            const editorName = document.getElementById('editor_name');
+            const editorBio = document.getElementById('editor_bio');
+            const editorChoices = document.getElementById('editor_avatar_choices');
+            editorName.value = profile.name || current.email;
+            editorBio.value = profile.bio || '';
+            editor.dataset.currentAvatar = profile.avatar || '';
+            editorChoices.innerHTML = '';
+            for (let i = 1; i <= 6; i++) {
+                const src = `../content/img/profil${i}.png`;
+                const img = document.createElement('img');
+                img.src = src;
+                img.alt = `Avatar ${i}`;
+                img.style.width = '54px';
+                img.style.height = '54px';
+                img.style.borderRadius = '10px';
+                img.style.cursor = 'pointer';
+                img.style.objectFit = 'cover';
+                img.style.border = editor.dataset.currentAvatar === src ? '2px solid #007bff' : '2px solid transparent';
+                img.addEventListener('click', ()=>{
+                    editor.dataset.currentAvatar = src;
+                    editorChoices.querySelectorAll('img').forEach(node => node.style.border = '2px solid transparent');
+                    img.style.border = '2px solid #007bff';
+                });
+                editorChoices.appendChild(img);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async ()=>{
+            await new Promise(resolve => setTimeout(resolve, 200));
+            await loadProfilePage();
+        });
+
+        document.addEventListener('click', function(e){
+            if (e.target && e.target.id === 'edit_profile_btn'){
+                e.preventDefault();
+                const editor = document.getElementById('profile_editor');
+                if (editor) editor.style.display = editor.style.display === 'none' ? 'block' : 'none';
+            }
+            if (e.target && e.target.id === 'cancel_profile_btn'){
+                e.preventDefault();
+                const editor = document.getElementById('profile_editor');
+                if (editor) editor.style.display = 'none';
+            }
+        });
+
+        document.getElementById('editor_avatar').addEventListener('change', function(e){
+            const f = e.target.files && e.target.files[0];
+            if (!f) return;
+            const reader = new FileReader();
+            reader.onload = function(){
+                const editor = document.getElementById('profile_editor');
+                editor.dataset.currentAvatar = reader.result;
+            };
+            reader.readAsDataURL(f);
+        });
+
+        document.getElementById('save_profile_btn').addEventListener('click', async function(){
+            const current = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(e){ return null; } })();
+            if (!current || !current.email) return;
+            const editor = document.getElementById('profile_editor');
+            const name = document.getElementById('editor_name').value.trim();
+            const bio = document.getElementById('editor_bio').value.trim();
+            const avatar = editor.dataset.currentAvatar || '../content/img/profil.png';
+            const newProfile = { name, bio, avatar };
+            localStorage.setItem('simba_profile_' + current.email, JSON.stringify(newProfile));
+            document.getElementById('profile_avatar').src = avatar;
+            document.getElementById('profile_name').innerText = name || current.email;
+            document.getElementById('profile_bio').innerText = bio || '';
+            editor.style.display = 'none';
+            if (typeof window.refreshProfileButton === 'function') {
+                window.refreshProfileButton();
+            }
+            if (typeof window.updateAuthUI === 'function') {
+                window.updateAuthUI();
+            }
+            try { window.dispatchEvent(new CustomEvent('simba-profile-updated', { detail: newProfile })); } catch(e){}
+            alert('Profile saved');
+        });
+
+        // live update when profile is changed elsewhere
+        window.addEventListener('simba-profile-updated', function(e){
+            const profile = e && e.detail ? e.detail : null;
+            const current = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(e){ return null; } })();
+            if (!current) return;
+            if (profile) {
+                document.getElementById('profile_avatar').src = profile.avatar || '../content/img/profil.png';
+                document.getElementById('profile_name').innerText = profile.name || current.email;
+                document.getElementById('profile_bio').innerText = profile.bio || '';
+                if (typeof window.refreshProfileButton === 'function') {
+                    window.refreshProfileButton();
+                }
+            } else {
+                try { const p = JSON.parse(localStorage.getItem('simba_profile_'+current.email)||'{}'); if (p) { document.getElementById('profile_avatar').src = p.avatar||'../content/img/profil.png'; document.getElementById('profile_name').innerText = p.name||current.email; document.getElementById('profile_bio').innerText = p.bio||''; } } catch(e){}
+                if (typeof window.refreshProfileButton === 'function') {
+                    window.refreshProfileButton();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -115,6 +115,7 @@ const themesData = {
 // RENDER THEMES
 function renderThemes(category) {
     const grid = document.getElementById('themesGrid');
+    if (!grid) return;
     const themes = themesData[category] || [];
     
     grid.innerHTML = themes.map(theme => `
@@ -126,6 +127,70 @@ function renderThemes(category) {
             </a>
         </div>
     `).join('');
+}
+
+function getDefaultProfileAvatar() {
+    return '../content/img/profil.png';
+}
+
+// Global auth header sync for every page.
+// This is intentionally outside DOMContentLoaded so it exists in the console
+// and can update the header even when called manually.
+function updateAuthUI() {
+    const authSection = document.querySelector('.auth-section');
+    if (!authSection) return;
+
+    const local = (() => {
+        try {
+            return JSON.parse(localStorage.getItem('simba_user') || 'null');
+        } catch (e) {
+            return null;
+        }
+    })();
+
+    if (local && local.email) {
+        authSection.innerHTML = `<span class="user-greeting">${local.email}</span><button class="logout-btn">Sign out</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
+    } else {
+        authSection.innerHTML = `<button class="sign-up-btn">Sign Up</button><button class="login-btn">Login</button>`;
+    }
+
+    const profileBtn = authSection.querySelector('.profile-btn');
+    if (profileBtn) {
+        profileBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.location.href = 'profile.html';
+        });
+    }
+
+    const logoutBtn = authSection.querySelector('.logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            localStorage.removeItem('simba_user');
+            updateAuthUI();
+        });
+    }
+
+    const signUpBtn = authSection.querySelector('.sign-up-btn');
+    if (signUpBtn) {
+        signUpBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (typeof window.showAuthModal === 'function') window.showAuthModal('signup');
+        });
+    }
+
+    const loginBtn = authSection.querySelector('.login-btn');
+    if (loginBtn) {
+        loginBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (typeof window.showAuthModal === 'function') window.showAuthModal('login');
+        });
+    }
+
+    // Keep the avatar preview in sync when a profile is saved elsewhere.
+    if (typeof window.refreshProfileButton === 'function') {
+        window.refreshProfileButton();
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -159,20 +224,348 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // SIGN UP BUTTON
-    const signUpBtn = document.querySelector('.sign-up-btn');
-    if (signUpBtn) {
-        signUpBtn.addEventListener('click', function() {
-            alert('Sign Up functionality coming soon!');
-        });
+    // AUTH UI
+    // helper: fetch with timeout to avoid long hangs when server is offline
+    async function fetchWithTimeout(resource, opts = {}) {
+        const timeout = typeof opts.timeout === 'number' ? opts.timeout : 3000;
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), timeout);
+        try {
+            const merged = { ...opts, signal: controller.signal };
+            const res = await fetch(resource, merged);
+            clearTimeout(id);
+            return res;
+        } catch (e) {
+            clearTimeout(id);
+            throw e;
+        }
     }
 
-    // LOGIN BUTTON
-    const loginBtn = document.querySelector('.login-btn');
-    if (loginBtn) {
-        loginBtn.addEventListener('click', function() {
-            alert('Login functionality coming soon!');
-        });
+    // If set to true, the app will not attempt any network/API calls and will use localStorage only.
+    const SIMBA_FORCE_LOCAL = true;
+
+    function attachAuthHandlers() {
+
+           const signUpBtn = document.querySelector('.sign-up-btn');
+           if (signUpBtn) signUpBtn.addEventListener('click', (e) => { e.preventDefault(); showAuthModal('signup'); });
+
+           const loginBtn = document.querySelector('.login-btn');
+           if (loginBtn) loginBtn.addEventListener('click', (e) => { e.preventDefault(); showAuthModal('login'); });
+
+               const logoutBtn = document.querySelector('.logout-btn');
+            if (logoutBtn) logoutBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                    try { await fetchWithTimeout('/api/logout', { method: 'POST', credentials: 'include', timeout: 3000 }); } catch (err) { }
+                localStorage.removeItem('simba_user');
+                updateAuthUI();
+                window.location.href = 'index.html';
+            });
+            const profileBtn = document.querySelector('.profile-btn');
+            if (profileBtn) profileBtn.addEventListener('click', (e) => { e.preventDefault(); window.location.href = 'profile.html'; });
+        }
+
+        // ---------- Simple local fallback store for prototype ----------
+        function loadLocalUsers() {
+                try { return JSON.parse(localStorage.getItem('simba_local_users')||'[]'); } catch { return []; }
+        }
+        function saveLocalUsers(list) { localStorage.setItem('simba_local_users', JSON.stringify(list)); }
+        function findLocalUserByEmail(email){ return loadLocalUsers().find(u=>u.email===email); }
+
+        // ---------- Modal UI ----------
+        function showAuthModal(tab){
+                // remove existing
+                const existing = document.getElementById('simbaAuthModal');
+                if (existing) existing.remove();
+                const div = document.createElement('div');
+                div.id = 'simbaAuthModal';
+                div.innerHTML = `
+                <div class="simba-modal-backdrop">
+                    <div class="simba-modal">
+                        <button class="simba-modal-close">×</button>
+                        <div class="simba-modal-tabs">
+                            <button data-tab="login" class="tab-btn">Login</button>
+                            <button data-tab="signup" class="tab-btn">Sign Up</button>
+                            <button data-tab="profile" class="tab-btn" style="display:none;">Profile</button>
+                        </div>
+                        <div class="simba-modal-body">
+                            <div class="tab-content" data-tab="login">
+                                <h3>Login</h3>
+                                <input id="simba_email" placeholder="Email" />
+                                <input id="simba_password" type="password" placeholder="Password" />
+                                <div style="margin-top:0.7rem"><button id="simba_login_btn" class="btn">Login</button></div>
+                                <div id="simba_msg" style="margin-top:0.8rem;color:red"></div>
+                            </div>
+                            <div class="tab-content" data-tab="signup" style="display:none;">
+                                <h3>Sign Up</h3>
+                                <input id="simba_s_email" placeholder="Email" />
+                                <input id="simba_s_password" type="password" placeholder="Password" />
+                                <div style="margin-top:0.7rem"><button id="simba_signup_btn" class="btn">Sign Up</button></div>
+                                <div id="simba_s_msg" style="margin-top:0.8rem;color:red"></div>
+                            </div>
+                            <div class="tab-content" data-tab="profile" style="display:none;">
+                                <h3>Your Profile</h3>
+                                <div id="simba_profile_area"></div>
+                                <div style="margin-top:0.7rem"><button id="simba_logout_btn" class="btn">Log out</button></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                `;
+                document.body.appendChild(div);
+
+                // styles
+                const style = document.createElement('style');
+                style.innerHTML = `
+                    .simba-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:20000}
+                    .simba-modal{background:white;border-radius:12px;padding:1rem;width:360px;max-width:95%}
+                    .simba-modal-close{position:absolute;right:12px;top:8px;background:none;border:none;font-size:20px}
+                    .simba-modal-tabs{display:flex;gap:8px;margin-bottom:8px}
+                    .tab-btn{flex:1;padding:0.5rem;border-radius:8px;border:1px solid #eee;background:#f7f7f7}
+                    .tab-content input{width:100%;padding:0.6rem;border-radius:8px;border:1px solid #ddd;margin-top:0.5rem}
+                `;
+                div.appendChild(style);
+
+                const closeBtn = div.querySelector('.simba-modal-close');
+                closeBtn.addEventListener('click', ()=>div.remove());
+                // close modal on backdrop click
+                const backdropEl = div.querySelector('.simba-modal-backdrop');
+                if (backdropEl) backdropEl.addEventListener('click', (ev) => { if (ev.target === backdropEl) div.remove(); });
+                const tabBtns = div.querySelectorAll('.tab-btn');
+                tabBtns.forEach(b=>b.addEventListener('click', ()=>{
+                    const t=b.getAttribute('data-tab');
+                    switchTab(t,div);
+                }));
+
+                function switchTab(t,container){
+                    container.querySelectorAll('.tab-content').forEach(tc=>tc.style.display = tc.getAttribute('data-tab')===t?'block':'none');
+                    container.querySelectorAll('.tab-btn').forEach(b=>b.style.background = b.getAttribute('data-tab')===t? '#fff':'#f7f7f7');
+                    if (t==='profile') populateProfile(container);
+                }
+
+                function populateProfile(container){
+                    const area = container.querySelector('#simba_profile_area');
+                    if (!area) return;
+                    area.innerHTML = '';
+                    let current = null;
+                    try { current = JSON.parse(localStorage.getItem('simba_user')); } catch {}
+                    const email = current && current.email;
+                    if (!email){ area.innerHTML = '<p>Please login first.</p>'; return; }
+                    // load profile from localStorage
+                    const key = 'simba_profile_'+email;
+                    let profile = {};
+                    try { profile = JSON.parse(localStorage.getItem(key)||'{}'); } catch {}
+                                        const img = profile.avatar ? `<img id="simba_profile_preview" src="${profile.avatar}" style="width:80px;height:80px;border-radius:50%"/>` : `<img id="simba_profile_preview" src="${getDefaultProfileAvatar()}" style="width:80px;height:80px;border-radius:50%"/>`;
+                                        // add preset avatar choices (profil1.png..profil6.png)
+                                        let choicesHtml = '<div style="display:flex;gap:8px;margin-top:0.6rem">';
+                                        for (let i=1;i<=6;i++) {
+                                                choicesHtml += `<img class="simba-avatar-choice" data-src="../content/img/profil${i}.png" src="../content/img/profil${i}.png" style="width:48px;height:48px;border-radius:8px;cursor:pointer;border:2px solid transparent"/>`;
+                                        }
+                                        choicesHtml += '</div>';
+                                        area.innerHTML = `
+                                            <div>${img}</div>
+                                            <div style="margin-top:0.6rem">${choicesHtml}</div>
+                                            <div style="margin-top:0.6rem"><label>Display name</label><input id="simba_dispname" value="${profile.name||''}" /></div>
+                                            <div style="margin-top:0.6rem"><label>Bio</label><textarea id="simba_bio">${profile.bio||''}</textarea></div>
+                                            <div style="margin-top:0.6rem"><label>Custom Avatar (upload)</label><input id="simba_avatar_file" type="file" accept="image/*" /></div>
+                                            <div style="margin-top:0.6rem"><button id="simba_save_profile" class="btn">Save profile</button></div>
+                                        `;
+                                        // mark selected if preset matches
+                                        area.querySelectorAll('.simba-avatar-choice').forEach(imgEl=>{
+                                                if (profile.avatar && profile.avatar.indexOf(imgEl.dataset.src)!==-1) imgEl.style.borderColor = '#007bff';
+                                                imgEl.addEventListener('click', ()=>{
+                                                        // select this choice
+                                                        area.querySelectorAll('.simba-avatar-choice').forEach(x=>x.style.borderColor='transparent');
+                                                        imgEl.style.borderColor = '#007bff';
+                                                        area.querySelector('#simba_profile_preview').src = imgEl.dataset.src;
+                                                        area.dataset.pendingAvatar = imgEl.dataset.src;
+                                                });
+                                        });
+                    container.querySelector('#simba_avatar_file').addEventListener('change', function(e){
+                        const f = e.target.files && e.target.files[0];
+                        if (!f) return;
+                        const reader = new FileReader();
+                        reader.onload = function(){
+                            const data = reader.result;
+                            // preview
+                            const preview = area.querySelector('#simba_profile_preview');
+                            if (preview) preview.setAttribute('src', data);
+                            // store temporarily in dataset (custom uploaded avatar)
+                            area.dataset.pendingAvatar = data;
+                        };
+                        reader.readAsDataURL(f);
+                    });
+                    container.querySelector('#simba_save_profile').addEventListener('click', async ()=>{
+                        const name = container.querySelector('#simba_dispname').value;
+                        const bio = container.querySelector('#simba_bio').value;
+                        const avatar = area.dataset.pendingAvatar || profile.avatar || '';
+                        const newProfile = { name, bio, avatar };
+                            // try to save to server (with timeout) unless forced local-only
+                            let saved = false;
+                            if (!SIMBA_FORCE_LOCAL) {
+                                try {
+                                    const ping = await fetchWithTimeout('/api/ping', { timeout: 3000 });
+                                    if (ping && ping.ok) {
+                                        const res = await fetchWithTimeout('/api/profile', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(newProfile), credentials: 'include', timeout: 5000 });
+                                        if (res && res.ok) saved = true;
+                                    }
+                                } catch(e){}
+                            }
+                        // always save locally as fallback
+                        localStorage.setItem(key, JSON.stringify(newProfile));
+                        alert('Profile saved' + (saved ? ' (server)' : ' (local)'));
+                        // update header avatar
+                        refreshProfileButton();
+                        // notify other parts of the app (profile page) to update
+                        try { window.dispatchEvent(new CustomEvent('simba-profile-updated', { detail: newProfile })); } catch(e){}
+                    });
+                }
+
+                switchTab(tab,div);
+
+                // wire buttons
+                div.querySelector('#simba_login_btn').addEventListener('click', async ()=>{
+                    const email = div.querySelector('#simba_email').value.trim();
+                    const pw = div.querySelector('#simba_password').value;
+                    const msg = div.querySelector('#simba_msg'); msg.innerText='';
+                    if (!email || !pw){ msg.innerText='Enter email and password'; return; }
+                    // try server (skip if forced local-only)
+                    if (!SIMBA_FORCE_LOCAL) {
+                        try {
+                            const ping = await fetchWithTimeout('/api/ping', { timeout: 3000 });
+                            if (ping && ping.ok){
+                                const res = await fetchWithTimeout('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw}),credentials:'include', timeout: 5000});
+                                const data = await res.json();
+                                if (!res.ok) { msg.innerText = data.error || 'Login failed'; return; }
+                                localStorage.setItem('simba_user', JSON.stringify({email}));
+                                updateAuthUI();
+                                div.remove();
+                                return;
+                            }
+                        } catch(e){ /* fallback */ }
+                    }
+                    // fallback to local store
+                    let u = findLocalUserByEmail(email);
+                    if (!u) { msg.innerText='No such user (server offline)'; return; }
+                    if (u.password !== pw) { msg.innerText='Invalid credentials'; return; }
+                    localStorage.setItem('simba_user', JSON.stringify({email}));
+                    updateAuthUI();
+                    div.remove();
+                });
+
+                div.querySelector('#simba_signup_btn').addEventListener('click', async ()=>{
+                    const email = div.querySelector('#simba_s_email').value.trim();
+                    const pw = div.querySelector('#simba_s_password').value;
+                    const msg = div.querySelector('#simba_s_msg'); msg.innerText='';
+                    if (!email || !pw){ msg.innerText='Enter email and password'; return; }
+                    if (!SIMBA_FORCE_LOCAL) {
+                        try {
+                            const ping = await fetchWithTimeout('/api/ping', { timeout: 3000 });
+                            if (ping && ping.ok){
+                                const res = await fetchWithTimeout('/api/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw}),credentials:'include', timeout: 5000});
+                                const data = await res.json();
+                                if (!res.ok) { msg.innerText = data.error || 'Signup failed'; return; }
+                                localStorage.setItem('simba_user', JSON.stringify({email}));
+                                updateAuthUI();
+                                div.remove();
+                                return;
+                            }
+                        } catch(e){ /* fallback */ }
+                    }
+                    // fallback local store
+                    if (findLocalUserByEmail(email)){ msg.innerText='Email already exists (local)'; return; }
+                    const users = loadLocalUsers(); users.push({ email, password: pw, profile: {} }); saveLocalUsers(users);
+                    localStorage.setItem('simba_user', JSON.stringify({email}));
+                    updateAuthUI();
+                    div.remove();
+                });
+
+                // profile logout
+                div.querySelector('#simba_logout_btn')?.addEventListener('click', async ()=>{ try { if (!SIMBA_FORCE_LOCAL) await fetchWithTimeout('/api/logout', { method: 'POST', credentials: 'include', timeout: 3000 }); } catch(e){} localStorage.removeItem('simba_user'); updateAuthUI(); div.remove(); });
+            }
+
+    function updateAuthUI() {
+        const authSection = document.querySelector('.auth-section');
+        console.debug('updateAuthUI called on', window.location.pathname, 'authSection?', !!authSection);
+        if (!authSection) return;
+        // ask server for current user (with timeout) unless forced local-only
+        if (SIMBA_FORCE_LOCAL) {
+            const local = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(e){ return null; } })();
+            console.debug('SIMBA_FORCE_LOCAL local user:', local);
+            if (local && local.email) {
+                authSection.innerHTML = `<span class="user-greeting">${local.email}</span><button class="logout-btn">Sign out</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
+            } else {
+                authSection.innerHTML = `<button class="sign-up-btn">Sign Up</button><button class="login-btn">Login</button>`;
+            }
+            attachAuthHandlers();
+            refreshProfileButton();
+        } else {
+            fetchWithTimeout('/api/me', { credentials: 'include', timeout: 3000 }).then(r => r.json()).then(data => {
+                const user = data && data.user ? data.user : null;
+                if (user && user.email) {
+                    // render profile button with avatar placeholder, refreshProfileButton() will update the image
+                    authSection.innerHTML = `<span class="user-greeting">${user.email}</span><button class="logout-btn">Sign out</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
+                } else {
+                    // fallback to localStorage user if present
+                    const local = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(e){ return null; } })();
+                        if (local && local.email) {
+                        authSection.innerHTML = `<span class="user-greeting">${local.email}</span><button class="logout-btn">Sign out</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
+                    } else {
+                        authSection.innerHTML = `<button class="sign-up-btn">Sign Up</button><button class="login-btn">Login</button>`;
+                    }
+                }
+                attachAuthHandlers();
+                // refresh header avatar if present
+                refreshProfileButton();
+            }).catch(() => {
+                // API unreachable — use localStorage fallback
+                const local = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(e){ return null; } })();
+                if (local && local.email) {
+                    authSection.innerHTML = `<span class="user-greeting">${local.email}</span><button class="logout-btn">Sign out</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
+                } else {
+                    authSection.innerHTML = `<button class="sign-up-btn">Sign Up</button><button class="login-btn">Login</button>`;
+                }
+                attachAuthHandlers();
+                refreshProfileButton();
+            });
+        }
+    }
+
+    // load profile either from API (if authenticated) or localStorage
+    async function loadProfileForCurrentUser() {
+        let current = null;
+        try { current = JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(e){}
+        // try API first (skip if forced local-only)
+        if (!SIMBA_FORCE_LOCAL) {
+            try {
+                const ping = await fetchWithTimeout('/api/ping', { timeout: 3000 });
+                if (ping && ping.ok) {
+                    const res = await fetchWithTimeout('/api/profile', { credentials: 'include', timeout: 5000 });
+                    if (res && res.ok) {
+                        const data = await res.json();
+                        return data.profile || {};
+                    }
+                }
+            } catch(e) { /* ignore */ }
+        }
+        // fallback to local
+        if (current && current.email) {
+            try { return JSON.parse(localStorage.getItem('simba_profile_'+current.email)||'{}'); } catch(e){}
+        }
+        return {};
+    }
+
+    async function refreshProfileButton() {
+        const btn = document.querySelector('.profile-btn');
+        if (!btn) return;
+        const img = btn.querySelector('img.profile-thumb');
+        if (!img) return;
+        const profile = await loadProfileForCurrentUser();
+        if (profile && profile.avatar) {
+            // avatar may be a data URL or a relative path
+            img.src = profile.avatar;
+        } else {
+            img.src = getDefaultProfileAvatar();
+        }
     }
 
     // SMOOTH SCROLL
@@ -192,7 +585,25 @@ document.addEventListener('DOMContentLoaded', function() {
     if (currentNav) {
         currentNav.classList.add('active');
     }
+
+    // Initialize auth UI
+    // expose functions to window so pages loaded later can call them
+    try {
+        if (typeof window !== 'undefined') {
+            window.updateAuthUI = updateAuthUI;
+            window.showAuthModal = showAuthModal;
+            window.refreshProfileButton = refreshProfileButton;
+            window.openProfileEditor = function() {
+                if (typeof window.showAuthModal === 'function') {
+                    window.showAuthModal('profile');
+                }
+            };
+        }
+    } catch (e) {}
+    updateAuthUI();
 });
+
+// (global exposure handled inside DOMContentLoaded)
 
 // SMOOTH HOVER ANIMATIONS
 document.addEventListener('DOMContentLoaded', function() {
@@ -206,3 +617,60 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// COOKIE CONSENT
+function initCookieBanner() {
+    const banner = document.getElementById('cookieBanner');
+    if (!banner) return;
+    // normalize banner text to English across pages
+    const p = banner.querySelector('.cookie-inner p');
+    if (p) p.innerHTML = 'We use cookies to improve this website. See our <a href="datenschutz.html">Privacy Policy</a>.';
+    const consent = localStorage.getItem('simba_cookie_consent');
+    if (!consent) {
+        banner.hidden = false;
+    }
+
+    const accept = document.getElementById('acceptCookies');
+    const reject = document.getElementById('rejectCookies');
+    const manage = document.getElementById('manageCookies');
+
+    if (accept) accept.textContent = 'Accept all';
+    if (reject) reject.textContent = 'Reject';
+    if (manage) manage.textContent = 'Manage settings';
+
+    if (accept) accept.addEventListener('click', function() {
+        localStorage.setItem('simba_cookie_consent', 'all');
+        banner.hidden = true;
+    });
+
+    if (reject) reject.addEventListener('click', function() {
+        localStorage.setItem('simba_cookie_consent', 'essential');
+        banner.hidden = true;
+    });
+
+    if (manage) manage.addEventListener('click', function() {
+        window.location.href = 'datenschutz.html#cookie-settings';
+    });
+}
+
+document.addEventListener('DOMContentLoaded', initCookieBanner);
+
+// If the script was loaded after DOMContentLoaded, ensure header is updated now
+try {
+    if (typeof updateAuthUI === 'function' && document.readyState !== 'loading') {
+        updateAuthUI();
+    }
+} catch (e) {}
+
+// Keep the header in sync when navigating with the browser back/forward cache
+// or when the localStorage session changes in another tab.
+try {
+    window.addEventListener('pageshow', function() {
+        if (typeof updateAuthUI === 'function') updateAuthUI();
+    });
+    window.addEventListener('storage', function(event) {
+        if (event && event.key === 'simba_user' && typeof updateAuthUI === 'function') {
+            updateAuthUI();
+        }
+    });
+} catch (e) {}

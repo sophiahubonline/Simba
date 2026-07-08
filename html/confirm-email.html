@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Confirm Email</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <header class="header">
+      <div class="header-container">
+          <div class="logo-section">
+              <img src="../content/img/simba.png" alt="SIMBA PROJECT Logo" class="logo">
+          </div>
+          
+          <nav class="navbar">
+              <ul class="nav-list">
+                  <li><a href="index.html" class="nav-link">Thematics</a></li>
+                  <li><a href="test.html" class="nav-link">Test</a></li>
+                  <li><a href="contact.html" class="nav-link">Contact Us</a></li>
+                  <li><a href="about-us.html" class="nav-link">About Us</a></li>
+              </ul>
+          </nav>
+          
+          <div class="auth-section">
+              <button class="sign-up-btn">Sign Up</button>
+              <button class="login-btn">Login</button>
+          </div>
+      </div>
+  </header>
+
+  <main class="page-container">
+    <h1 class="page-title">Confirm Email</h1>
+    <div class="page-content" id="content">
+      <p>Confirming...</p>
+    </div>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (!token) document.getElementById('content').innerText = 'Missing token';
+    else {
+      fetch('/api/confirm-email?token=' + encodeURIComponent(token)).then(r=>r.json()).then(data=>{
+        if (data && data.ok) document.getElementById('content').innerText = 'Email confirmed. You can close this page.';
+        else document.getElementById('content').innerText = (data.error || 'Confirmation failed');
+      }).catch(()=>{document.getElementById('content').innerText='Network error';});
+    }
+  </script>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+      <div class="footer-container">
+          <div class="footer-content">
+              <p>&copy; 2024 SIMBA PROJECT - Hero's Journey. All rights reserved.</p>
+              <p class="footer-links"><a href="impressum.html">Impressum</a> | <a href="datenschutz.html">Datenschutzerklärung</a></p>
+          </div>
+          <div class="social-links">
+              <a href="https://youtube.com" target="_blank" class="social-icon">
+                  <img src="../content/img/youtube.png" alt="YouTube">
+              </a>
+              <a href="https://instagram.com" target="_blank" class="social-icon">
+                  <img src="../content/img/instagram.png" alt="Instagram">
+              </a>
+              <a href="https://wa.me" target="_blank" class="social-icon">
+                  <img src="../content/img/whatsapp.png" alt="WhatsApp">
+              </a>
+          </div>
+      </div>
+  </footer>
+
+  <!-- COOKIE BANNER -->
+  <div id="cookieBanner" class="cookie-banner" aria-live="polite" hidden>
+      <div class="cookie-inner">
+          <p>Wir verwenden Cookies, um diese Website zu verbessern. Mehr dazu in unserer <a href="datenschutz.html">Datenschutzerklärung</a>.</p>
+          <div class="cookie-actions">
+              <button id="acceptCookies" class="btn">Alle akzeptieren</button>
+              <button id="rejectCookies" class="btn btn-secondary">Ablehnen</button>
+              <button id="manageCookies" class="btn btn-link">Einstellungen</button>
+          </div>
+      </div>
+  </div>
+
+  <script src="../js/script.js"></script>
+</body>
+</html>
