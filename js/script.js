@@ -117,13 +117,15 @@ function renderThemes(category) {
     const grid = document.getElementById('themesGrid');
     if (!grid) return;
     const themes = themesData[category] || [];
+    const getThemeCopy = (theme) => (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function') ? window.SimbaI18n.getThemeCard(theme) : theme;
+    const learnMoreLabel = simbaT('theme.learnMore', 'Learn more about it');
     
     grid.innerHTML = themes.map(theme => `
         <div class="theme-card">
-            <h3>${theme.name}</h3>
-            <p>${theme.description}</p>
+            <h3>${getThemeCopy(theme).name}</h3>
+            <p>${getThemeCopy(theme).description}</p>
             <a href="${theme.link}" class="learn-more-btn">
-                Learn more about it <span class="arrow">→</span>
+                ${learnMoreLabel} <span class="arrow">→</span>
             </a>
         </div>
     `).join('');
@@ -131,6 +133,75 @@ function renderThemes(category) {
 
 function getDefaultProfileAvatar() {
     return '../content/img/profil.png';
+}
+
+function simbaT(key, fallback = '') {
+    if (window.SimbaI18n && typeof window.SimbaI18n.getTranslation === 'function') {
+        return window.SimbaI18n.getTranslation(key, fallback);
+    }
+    return fallback;
+}
+
+function ensureLanguageSwitcher(authSection) {
+    const section = authSection || document.querySelector('.auth-section');
+    if (!section) return;
+
+    let switcher = section.querySelector('.language-switcher');
+    if (!switcher) {
+        switcher = document.createElement('label');
+        switcher.className = 'language-switcher';
+        switcher.innerHTML = '<span class="language-switcher__label">Language</span><select id="simba-language-select"></select>';
+        section.appendChild(switcher);
+    }
+
+    const label = switcher.querySelector('.language-switcher__label');
+    const select = switcher.querySelector('select');
+    const languageOptions = (window.SimbaI18n && window.SimbaI18n.languages)
+        ? window.SimbaI18n.languages
+        : { en: 'English', de: 'Deutsch', fr: 'Français', es: 'Español', it: 'Italiano' };
+
+    if (label) label.textContent = simbaT('language.label', 'Language');
+    if (select) {
+        select.innerHTML = Object.entries(languageOptions).map(([code, name]) => `<option value="${code}">${name}</option>`).join('');
+        select.value = (window.SimbaI18n && typeof window.SimbaI18n.getCurrentLanguage === 'function') ? window.SimbaI18n.getCurrentLanguage() : (localStorage.getItem('simba_language') || 'en');
+        select.setAttribute('aria-label', simbaT('language.aria', 'Choose website language'));
+        if (!select.dataset.languageBound) {
+            select.addEventListener('change', (event) => {
+                if (window.SimbaI18n && typeof window.SimbaI18n.setCurrentLanguage === 'function') {
+                    window.SimbaI18n.setCurrentLanguage(event.target.value);
+                } else {
+                    localStorage.setItem('simba_language', event.target.value);
+                    window.location.reload();
+                }
+            });
+            select.dataset.languageBound = 'true';
+        }
+    }
+}
+
+function refreshNavbarDropdownLabels() {
+    document.querySelectorAll('.nav-dropdown-link strong[data-theme-key]').forEach((node) => {
+        const themeKey = node.getAttribute('data-theme-key');
+        if (!themeKey) return;
+        if (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function') {
+            const localized = window.SimbaI18n.getThemeCard({ link: `${themeKey}.html` });
+            node.textContent = localized.name || node.textContent;
+        }
+    });
+}
+
+if (typeof window !== 'undefined' && !window.SimbaI18n) {
+    const i18nScript = document.createElement('script');
+    i18nScript.src = '../js/i18n.js';
+    i18nScript.addEventListener('load', () => {
+        if (typeof window.updateAuthUI === 'function') {
+            window.updateAuthUI();
+        }
+        if (window.SimbaI18n && typeof window.SimbaI18n.applyLanguage === 'function') {
+            window.SimbaI18n.applyLanguage();
+        }
+    });
+    document.head.appendChild(i18nScript);
 }
 
 function getStoredProfile(email) {
@@ -206,25 +277,28 @@ function buildNavbarDropdowns() {
     const navList = document.querySelector('.nav-list');
     if (!navList || navList.dataset.dropdownReady === 'true') return;
 
+    const t = (key, fallback) => simbaT(key, fallback);
+
     const thematicsItems = Object.values(themesData).flat().map((theme) => ({
-        label: theme.name,
+        label: window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard(theme).name : theme.name,
+        themeKey: String(theme.link || '').replace(/\.html$/i, ''),
         href: theme.link
     }));
 
     const testItems = [
-        { label: 'All tests', href: 'test.html' },
-        { label: 'Relationships', href: 'test.html#relationships' },
-        { label: 'Mental Health', href: 'test.html#mental-health' },
-        { label: 'Personal Growth', href: 'test.html#personal-growth' },
-        { label: 'Neurodiversity', href: 'test.html#neurodiversity' },
-        { label: 'Mind & Body', href: 'test.html#mind-body' }
+        { label: t('dropdown.allTests', 'All tests'), labelKey: 'dropdown.allTests', href: 'test.html' },
+        { label: t('dropdown.relationships', 'Relationships'), labelKey: 'dropdown.relationships', href: 'test.html#relationships' },
+        { label: t('dropdown.mentalHealth', 'Mental Health'), labelKey: 'dropdown.mentalHealth', href: 'test.html#mental-health' },
+        { label: t('dropdown.personalGrowth', 'Personal Growth'), labelKey: 'dropdown.personalGrowth', href: 'test.html#personal-growth' },
+        { label: t('dropdown.neurodiversity', 'Neurodiversity'), labelKey: 'dropdown.neurodiversity', href: 'test.html#neurodiversity' },
+        { label: t('dropdown.mindBody', 'Mind & Body'), labelKey: 'dropdown.mindBody', href: 'test.html#mind-body' }
     ];
 
     const buildSimpleLinks = (links) => `
         <div class="nav-dropdown-links nav-dropdown-links--plain">
             ${links.map((link) => `
                 <a href="${link.href}" class="nav-dropdown-link">
-                    <strong>${link.label}</strong>
+                    <strong${link.labelKey ? ` data-i18n="${link.labelKey}"` : ''}${link.themeKey ? ` data-theme-key="${link.themeKey}"` : ''}>${link.label}</strong>
                 </a>
             `).join('')}
         </div>
@@ -260,7 +334,7 @@ function buildNavbarDropdowns() {
 
     if (!navList.querySelector('a[href="forum.html"]')) {
         const forumItem = document.createElement('li');
-        forumItem.innerHTML = '<a href="forum.html" class="nav-link">Forum</a>';
+        forumItem.innerHTML = `<a href="forum.html" class="nav-link">${t('nav.forum', 'Forum')}</a>`;
 
         const contactItem = navList.querySelector('a[href="contact.html"]')?.closest('li');
         if (contactItem && contactItem.parentNode === navList) {
@@ -319,10 +393,12 @@ function updateAuthUI() {
     })();
 
     if (local && local.email) {
-        authSection.innerHTML = `<span class="user-greeting">${local.email}</span><button class="logout-btn">Sign out</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
+        authSection.innerHTML = `<span class="user-greeting">${local.email}</span><button class="logout-btn">${simbaT('auth.signout', 'Sign out')}</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
     } else {
-        authSection.innerHTML = `<button class="sign-up-btn">Sign Up</button><button class="login-btn">Login</button>`;
+        authSection.innerHTML = `<button class="sign-up-btn">${simbaT('auth.signup', 'Sign Up')}</button><button class="login-btn">${simbaT('auth.login', 'Login')}</button>`;
     }
+
+    ensureLanguageSwitcher(authSection);
 
     if (local && local.email && typeof window.flushPendingQuizScores === 'function') {
         window.flushPendingQuizScores();
@@ -370,10 +446,12 @@ function updateAuthUI() {
 document.addEventListener('DOMContentLoaded', function() {
     // CATEGORY TABS
     const categoryTabs = document.querySelectorAll('.category-tab');
+    let activeCategory = 'relationships';
     
     categoryTabs.forEach(tab => {
         tab.addEventListener('click', function() {
             const category = this.getAttribute('data-category');
+            activeCategory = category;
             
             // Remove active class from all tabs
             categoryTabs.forEach(t => t.classList.remove('active'));
@@ -388,6 +466,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize with first category
     renderThemes('relationships');
+    activeCategory = 'relationships';
+
+    window.addEventListener('simba-language-changed', function() {
+        renderThemes(activeCategory);
+    });
 
     // NAV LINK ACTIVE STATE
     const navLinks = document.querySelectorAll('.nav-link');
@@ -457,29 +540,29 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="simba-modal">
                         <button class="simba-modal-close">×</button>
                         <div class="simba-modal-tabs">
-                            <button data-tab="login" class="tab-btn">Login</button>
-                            <button data-tab="signup" class="tab-btn">Sign Up</button>
-                            <button data-tab="profile" class="tab-btn" style="display:none;">Profile</button>
+                            <button data-tab="login" class="tab-btn">${simbaT('modal.loginTitle', 'Login')}</button>
+                            <button data-tab="signup" class="tab-btn">${simbaT('modal.signupTitle', 'Sign Up')}</button>
+                            <button data-tab="profile" class="tab-btn" style="display:none;">${simbaT('modal.profileTitle', 'Profile')}</button>
                         </div>
                         <div class="simba-modal-body">
                             <div class="tab-content" data-tab="login">
-                                <h3>Login</h3>
-                                <input id="simba_email" placeholder="Email" />
-                                <input id="simba_password" type="password" placeholder="Password" />
-                                <div style="margin-top:0.7rem"><button id="simba_login_btn" class="btn">Login</button></div>
+                                <h3>${simbaT('modal.loginTitle', 'Login')}</h3>
+                                <input id="simba_email" placeholder="${simbaT('modal.email', 'Email')}" />
+                                <input id="simba_password" type="password" placeholder="${simbaT('modal.password', 'Password')}" />
+                                <div style="margin-top:0.7rem"><button id="simba_login_btn" class="btn">${simbaT('modal.loginButton', 'Login')}</button></div>
                                 <div id="simba_msg" style="margin-top:0.8rem;color:red"></div>
                             </div>
                             <div class="tab-content" data-tab="signup" style="display:none;">
-                                <h3>Sign Up</h3>
-                                <input id="simba_s_email" placeholder="Email" />
-                                <input id="simba_s_password" type="password" placeholder="Password" />
-                                <div style="margin-top:0.7rem"><button id="simba_signup_btn" class="btn">Sign Up</button></div>
+                                <h3>${simbaT('modal.signupTitle', 'Sign Up')}</h3>
+                                <input id="simba_s_email" placeholder="${simbaT('modal.email', 'Email')}" />
+                                <input id="simba_s_password" type="password" placeholder="${simbaT('modal.password', 'Password')}" />
+                                <div style="margin-top:0.7rem"><button id="simba_signup_btn" class="btn">${simbaT('modal.signupButton', 'Sign Up')}</button></div>
                                 <div id="simba_s_msg" style="margin-top:0.8rem;color:red"></div>
                             </div>
                             <div class="tab-content" data-tab="profile" style="display:none;">
-                                <h3>Your Profile</h3>
+                                <h3>${simbaT('modal.profileTitle', 'Your Profile')}</h3>
                                 <div id="simba_profile_area"></div>
-                                <div style="margin-top:0.7rem"><button id="simba_logout_btn" class="btn">Log out</button></div>
+                                <div style="margin-top:0.7rem"><button id="simba_logout_btn" class="btn">${simbaT('auth.signout', 'Log out')}</button></div>
                             </div>
                         </div>
                     </div>
@@ -523,7 +606,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     let current = null;
                     try { current = JSON.parse(localStorage.getItem('simba_user')); } catch {}
                     const email = current && current.email;
-                    if (!email){ area.innerHTML = '<p>Please login first.</p>'; return; }
+                    if (!email){ area.innerHTML = `<p>${simbaT('modal.pleaseLogin', 'Please login first.')}</p>`; return; }
                     // load profile from localStorage
                     const key = 'simba_profile_'+email;
                     let profile = {};
@@ -538,10 +621,10 @@ document.addEventListener('DOMContentLoaded', function() {
                                         area.innerHTML = `
                                             <div>${img}</div>
                                             <div style="margin-top:0.6rem">${choicesHtml}</div>
-                                            <div style="margin-top:0.6rem"><label>Display name</label><input id="simba_dispname" value="${profile.name||''}" /></div>
-                                            <div style="margin-top:0.6rem"><label>Bio</label><textarea id="simba_bio">${profile.bio||''}</textarea></div>
-                                            <div style="margin-top:0.6rem"><label>Custom Avatar (upload)</label><input id="simba_avatar_file" type="file" accept="image/*" /></div>
-                                            <div style="margin-top:0.6rem"><button id="simba_save_profile" class="btn">Save profile</button></div>
+                                            <div style="margin-top:0.6rem"><label>${simbaT('modal.displayName', 'Display name')}</label><input id="simba_dispname" value="${profile.name||''}" /></div>
+                                            <div style="margin-top:0.6rem"><label>${simbaT('modal.bio', 'Bio')}</label><textarea id="simba_bio">${profile.bio||''}</textarea></div>
+                                            <div style="margin-top:0.6rem"><label>${simbaT('modal.uploadAvatar', 'Custom Avatar (upload)')}</label><input id="simba_avatar_file" type="file" accept="image/*" /></div>
+                                            <div style="margin-top:0.6rem"><button id="simba_save_profile" class="btn">${simbaT('modal.saveProfile', 'Save profile')}</button></div>
                                         `;
                                         // mark selected if preset matches
                                         area.querySelectorAll('.simba-avatar-choice').forEach(imgEl=>{
@@ -586,7 +669,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                         // always save locally as fallback
                         localStorage.setItem(key, JSON.stringify(newProfile));
-                        alert('Profile saved' + (saved ? ' (server)' : ' (local)'));
+                        alert(saved ? simbaT('modal.profileSavedServer', 'Profile saved (server)') : simbaT('modal.profileSavedLocal', 'Profile saved (local)'));
                         // update header avatar
                         refreshProfileButton();
                         // notify other parts of the app (profile page) to update
@@ -601,7 +684,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const email = div.querySelector('#simba_email').value.trim();
                     const pw = div.querySelector('#simba_password').value;
                     const msg = div.querySelector('#simba_msg'); msg.innerText='';
-                    if (!email || !pw){ msg.innerText='Enter email and password'; return; }
+                    if (!email || !pw){ msg.innerText=simbaT('modal.enterCredentials', 'Enter email and password'); return; }
                     // try server (skip if forced local-only)
                     if (!SIMBA_FORCE_LOCAL) {
                         try {
@@ -609,7 +692,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             if (ping && ping.ok){
                                 const res = await fetchWithTimeout('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw}),credentials:'include', timeout: 5000});
                                 const data = await res.json();
-                                if (!res.ok) { msg.innerText = data.error || 'Login failed'; return; }
+                                if (!res.ok) { msg.innerText = data.error || simbaT('modal.invalidCredentials', 'Login failed'); return; }
                                 localStorage.setItem('simba_user', JSON.stringify({email}));
                                 updateAuthUI();
                                 if (typeof window.flushPendingQuizScores === 'function') window.flushPendingQuizScores();
@@ -620,8 +703,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     // fallback to local store
                     let u = findLocalUserByEmail(email);
-                    if (!u) { msg.innerText='No such user (server offline)'; return; }
-                    if (u.password !== pw) { msg.innerText='Invalid credentials'; return; }
+                    if (!u) { msg.innerText=simbaT('modal.noSuchUser', 'No such user (server offline)'); return; }
+                    if (u.password !== pw) { msg.innerText=simbaT('modal.invalidCredentials', 'Invalid credentials'); return; }
                     localStorage.setItem('simba_user', JSON.stringify({email}));
                     updateAuthUI();
                     if (typeof window.flushPendingQuizScores === 'function') window.flushPendingQuizScores();
@@ -632,7 +715,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const email = div.querySelector('#simba_s_email').value.trim();
                     const pw = div.querySelector('#simba_s_password').value;
                     const msg = div.querySelector('#simba_s_msg'); msg.innerText='';
-                    if (!email || !pw){ msg.innerText='Enter email and password'; return; }
+                    if (!email || !pw){ msg.innerText=simbaT('modal.enterCredentials', 'Enter email and password'); return; }
                     if (!SIMBA_FORCE_LOCAL) {
                         try {
                             const ping = await fetchWithTimeout('/api/ping', { timeout: 3000 });
@@ -649,7 +732,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         } catch(e){ /* fallback */ }
                     }
                     // fallback local store
-                    if (findLocalUserByEmail(email)){ msg.innerText='Email already exists (local)'; return; }
+                    if (findLocalUserByEmail(email)){ msg.innerText=simbaT('modal.emailExists', 'Email already exists (local)'); return; }
                     const users = loadLocalUsers(); users.push({ email, password: pw, profile: {} }); saveLocalUsers(users);
                     localStorage.setItem('simba_user', JSON.stringify({email}));
                     updateAuthUI();
@@ -670,39 +753,42 @@ document.addEventListener('DOMContentLoaded', function() {
             const local = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(e){ return null; } })();
             console.debug('SIMBA_FORCE_LOCAL local user:', local);
             if (local && local.email) {
-                authSection.innerHTML = `<span class="user-greeting">${local.email}</span><button class="logout-btn">Sign out</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
+                authSection.innerHTML = `<span class="user-greeting">${local.email}</span><button class="logout-btn">${simbaT('auth.signout', 'Sign out')}</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
             } else {
-                authSection.innerHTML = `<button class="sign-up-btn">Sign Up</button><button class="login-btn">Login</button>`;
+                authSection.innerHTML = `<button class="sign-up-btn">${simbaT('auth.signup', 'Sign Up')}</button><button class="login-btn">${simbaT('auth.login', 'Login')}</button>`;
             }
             attachAuthHandlers();
+            ensureLanguageSwitcher(authSection);
             refreshProfileButton();
         } else {
             fetchWithTimeout('/api/me', { credentials: 'include', timeout: 3000 }).then(r => r.json()).then(data => {
                 const user = data && data.user ? data.user : null;
                 if (user && user.email) {
                     // render profile button with avatar placeholder, refreshProfileButton() will update the image
-                    authSection.innerHTML = `<span class="user-greeting">${user.email}</span><button class="logout-btn">Sign out</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
+                    authSection.innerHTML = `<span class="user-greeting">${user.email}</span><button class="logout-btn">${simbaT('auth.signout', 'Sign out')}</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
                 } else {
                     // fallback to localStorage user if present
                     const local = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(e){ return null; } })();
                         if (local && local.email) {
-                        authSection.innerHTML = `<span class="user-greeting">${local.email}</span><button class="logout-btn">Sign out</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
+                        authSection.innerHTML = `<span class="user-greeting">${local.email}</span><button class="logout-btn">${simbaT('auth.signout', 'Sign out')}</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
                     } else {
-                        authSection.innerHTML = `<button class="sign-up-btn">Sign Up</button><button class="login-btn">Login</button>`;
+                        authSection.innerHTML = `<button class="sign-up-btn">${simbaT('auth.signup', 'Sign Up')}</button><button class="login-btn">${simbaT('auth.login', 'Login')}</button>`;
                     }
                 }
                 attachAuthHandlers();
+                ensureLanguageSwitcher(authSection);
                 // refresh header avatar if present
                 refreshProfileButton();
             }).catch(() => {
                 // API unreachable — use localStorage fallback
                 const local = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(e){ return null; } })();
                 if (local && local.email) {
-                    authSection.innerHTML = `<span class="user-greeting">${local.email}</span><button class="logout-btn">Sign out</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
+                    authSection.innerHTML = `<span class="user-greeting">${local.email}</span><button class="logout-btn">${simbaT('auth.signout', 'Sign out')}</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
                 } else {
-                    authSection.innerHTML = `<button class="sign-up-btn">Sign Up</button><button class="login-btn">Login</button>`;
+                    authSection.innerHTML = `<button class="sign-up-btn">${simbaT('auth.signup', 'Sign Up')}</button><button class="login-btn">${simbaT('auth.login', 'Login')}</button>`;
                 }
                 attachAuthHandlers();
+                ensureLanguageSwitcher(authSection);
                 refreshProfileButton();
             });
         }
@@ -808,9 +894,6 @@ document.addEventListener('DOMContentLoaded', function() {
 function initCookieBanner() {
     const banner = document.getElementById('cookieBanner');
     if (!banner) return;
-    // normalize banner text to English across pages
-    const p = banner.querySelector('.cookie-inner p');
-    if (p) p.innerHTML = 'We use cookies to improve this website. See our <a href="datenschutz.html">Privacy Policy</a>.';
     const consent = localStorage.getItem('simba_cookie_consent');
     if (!consent) {
         banner.hidden = false;
@@ -820,9 +903,9 @@ function initCookieBanner() {
     const reject = document.getElementById('rejectCookies');
     const manage = document.getElementById('manageCookies');
 
-    if (accept) accept.textContent = 'Accept all';
-    if (reject) reject.textContent = 'Reject';
-    if (manage) manage.textContent = 'Manage settings';
+    if (accept) accept.textContent = simbaT('cookie.accept', 'Accept all');
+    if (reject) reject.textContent = simbaT('cookie.reject', 'Reject');
+    if (manage) manage.textContent = simbaT('cookie.manage', 'Manage settings');
 
     if (accept) accept.addEventListener('click', function() {
         localStorage.setItem('simba_cookie_consent', 'all');

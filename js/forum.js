@@ -1,6 +1,8 @@
 (function() {
     const STORAGE_KEY = 'simba_forum_threads';
     const MAX_THREADS = 100;
+    const t = (key, fallback = '') => (window.SimbaI18n && typeof window.SimbaI18n.getTranslation === 'function') ? window.SimbaI18n.getTranslation(key, fallback) : fallback;
+    const getLocale = () => (window.SimbaI18n && typeof window.SimbaI18n.getLocale === 'function') ? window.SimbaI18n.getLocale(window.SimbaI18n.getCurrentLanguage()) : 'en-US';
 
     function getCurrentUser() {
         try { return JSON.parse(localStorage.getItem('simba_user') || 'null'); } catch (e) { return null; }
@@ -53,7 +55,7 @@
 
     function formatDate(value) {
         try {
-            return new Date(value).toLocaleString('en-US', {
+            return new Date(value).toLocaleString(getLocale(), {
                 day: '2-digit',
                 month: 'short',
                 year: 'numeric',
@@ -86,45 +88,45 @@
                 <div class="forum-panel forum-composer">
                     <div class="forum-panel-heading">
                         <div>
-                            <p class="forum-panel-kicker">Start a topic</p>
-                            <h2>Post a question or start a discussion</h2>
+                            <p class="forum-panel-kicker">${t('forum.startTopic', 'Start a topic')}</p>
+                            <h2>${t('forum.postTitle', 'Post a question or start a discussion')}</h2>
                         </div>
-                        <span class="forum-panel-chip">Public board</span>
+                        <span class="forum-panel-chip">${t('forum.publicBoard', 'Public board')}</span>
                     </div>
                     <div class="forum-identity-box">
                         <img src="${escapeHtml(identity.avatar)}" alt="identity avatar" />
                         <div>
                             <strong>${escapeHtml(identity.name)}</strong>
-                            <small>${identity.isAnonymous ? 'Anonymous message' : ''}</small>
+                            ${identity.isAnonymous ? `<small>${t('forum.anonymousMessage', 'Anonymous message')}</small>` : ''}
                         </div>
                     </div>
                     <form id="forumPostForm" class="forum-form">
                         <div class="forum-form-grid">
                             <label>
-                                Posting as
+                                ${t('forum.postingAs', 'Posting as')}
                                 <input id="forumName" type="text" maxlength="60" readonly value="${escapeHtml(identity.name)}" />
                             </label>
                             <label>
-                                Topic type
+                                ${t('forum.topicType', 'Topic type')}
                                 <select id="forumCategory">
-                                    <option value="question">Question</option>
-                                    <option value="discussion">Discussion</option>
-                                    <option value="support">Support</option>
-                                    <option value="feedback">Feedback</option>
+                                    <option value="question">${t('forum.question', 'Question')}</option>
+                                    <option value="discussion">${t('forum.discussion', 'Discussion')}</option>
+                                    <option value="support">${t('forum.support', 'Support')}</option>
+                                    <option value="feedback">${t('forum.feedback', 'Feedback')}</option>
                                 </select>
                             </label>
                         </div>
                         <label>
-                            Title
-                            <input id="forumTitle" type="text" maxlength="120" placeholder="What do you want to ask?" />
+                            ${t('forum.titleLabel', 'Title')}
+                            <input id="forumTitle" type="text" maxlength="120" placeholder="${t('forum.titlePlaceholder', 'What do you want to ask?')}" />
                         </label>
                         <label>
-                            Message
-                            <textarea id="forumMessage" rows="6" maxlength="2500" placeholder="Describe your question or share your point of view..."></textarea>
+                            ${t('forum.messageLabel', 'Message')}
+                            <textarea id="forumMessage" rows="6" maxlength="2500" placeholder="${t('forum.messagePlaceholder', 'Describe your question or share your point of view...')}"></textarea>
                         </label>
                         <div class="forum-form-footer">
-                            <span id="forumFormNote">Keep it respectful and specific.</span>
-                            <button class="forum-submit-btn" type="submit">Post message</button>
+                            <span id="forumFormNote">${t('forum.note', 'Keep it respectful and specific.')}</span>
+                            <button class="forum-submit-btn" type="submit">${t('forum.postMessage', 'Post message')}</button>
                         </div>
                     </form>
                 </div>
@@ -132,13 +134,13 @@
                 <div class="forum-panel forum-board">
                     <div class="forum-panel-heading">
                         <div>
-                            <p class="forum-panel-kicker">Community threads</p>
-                            <h2>Latest messages</h2>
+                            <p class="forum-panel-kicker">${t('forum.communityThreads', 'Community threads')}</p>
+                            <h2>${t('forum.latestMessages', 'Latest messages')}</h2>
                         </div>
                         <span class="forum-panel-chip">${threads.length} posts</span>
                     </div>
                     <div id="forumThreads" class="forum-threads">
-                        ${threads.length ? threads.map(renderThread).join('') : '<div class="forum-empty">No posts yet. Be the first one to start the conversation.</div>'}
+                        ${threads.length ? threads.map(renderThread).join('') : `<div class="forum-empty">${t('forum.noPosts', 'No posts yet. Be the first one to start the conversation.')}</div>`}
                     </div>
                 </div>
             </section>
@@ -154,8 +156,8 @@
                 const message = document.getElementById('forumMessage').value.trim();
                 const note = document.getElementById('forumFormNote');
 
-                if (!title || !message) {
-                    if (note) note.textContent = 'Please write both a title and a message.';
+                    if (!title || !message) {
+                    if (note) note.textContent = t('forum.note', 'Please write both a title and a message.');
                     return;
                 }
 
@@ -173,7 +175,7 @@
                     replies: []
                 });
                 saveThreads(nextThreads);
-                if (note) note.textContent = 'Your message has been posted.';
+                if (note) note.textContent = t('forum.posted', 'Your message has been posted.');
                 form.reset();
                 document.getElementById('forumName').value = identity.name;
                 renderForum();
@@ -255,7 +257,7 @@
                 <p class="forum-thread-body">${escapeHtml(thread.body)}</p>
                 <div class="forum-thread-actions">
                     <button type="button" class="forum-reply-toggle" data-reply-toggle="${replyBoxId}" aria-expanded="false">Reply</button>
-                    <span>${replies.length} ${replies.length === 1 ? 'reply' : 'replies'}</span>
+                    <span>${replies.length} ${replies.length === 1 ? t('forum.reply', 'reply') : t('forum.replies', 'replies')}</span>
                 </div>
                 <div class="forum-replies">
                     ${replies.length ? replies.map((reply) => `
@@ -265,17 +267,17 @@
                                 <div class="forum-reply-header">
                                     <strong>${escapeHtml(reply.author || 'Guest')}</strong>
                                     <small>${formatDate(reply.createdAt)}</small>
-                                    ${reply.isAnonymous ? '<span class="forum-thread-badge">Anonymous</span>' : ''}
+                                    ${reply.isAnonymous ? `<span class="forum-thread-badge">${t('forum.anonymous', 'Anonymous')}</span>` : ''}
                                 </div>
                                 <p>${escapeHtml(reply.body)}</p>
                             </div>
                         </div>
-                    `).join('') : '<div class="forum-empty forum-empty--small">No replies yet. Start the conversation.</div>'}
+                    `).join('') : `<div class="forum-empty forum-empty--small">${t('forum.noReplies', 'No replies yet. Start the conversation.')}</div>`}
                 </div>
                 <form class="forum-reply-form" data-reply-form="${thread.id}" data-reply-box="${replyBoxId}" hidden>
-                    <textarea rows="3" maxlength="1200" placeholder="Write a reply..."></textarea>
+                    <textarea rows="3" maxlength="1200" placeholder="${t('forum.replyPlaceholder', 'Write a reply...')}"></textarea>
                     <div class="forum-reply-form-footer">
-                        <button type="submit" class="forum-submit-btn forum-submit-btn--small">Send reply</button>
+                        <button type="submit" class="forum-submit-btn forum-submit-btn--small">${t('forum.sendReply', 'Send reply')}</button>
                     </div>
                 </form>
             </article>
@@ -283,6 +285,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', renderForum);
+    window.addEventListener('simba-language-changed', renderForum);
     if (document.readyState !== 'loading') {
         renderForum();
     }
