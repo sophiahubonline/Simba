@@ -3,27 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIMBA PROJECT - Hero's Journey</title>
+    <title>Forum - SIMBA PROJECT</title>
     <link rel="icon" type="image/png" href="../content/img/simba.png">
     <link rel="stylesheet" href="../css/style.css">
 </head>
 <body>
-    <!-- HEADER -->
     <header class="header">
         <div class="header-container">
             <div class="logo-section">
                 <img src="../content/img/simba.png" alt="SIMBA PROJECT Logo" class="logo">
             </div>
-            
             <nav class="navbar">
                 <ul class="nav-list">
-                    <li><a href="index.html" class="nav-link active">Thematics</a></li>
+                    <li><a href="index.html" class="nav-link">Thematics</a></li>
                     <li><a href="test.html" class="nav-link">Test</a></li>
                     <li><a href="contact.html" class="nav-link">Contact Us</a></li>
                     <li><a href="about-us.html" class="nav-link">About Us</a></li>
                 </ul>
             </nav>
-            
             <div class="auth-section">
                 <button class="sign-up-btn">Sign Up</button>
                 <button class="login-btn">Login</button>
@@ -31,47 +28,26 @@
         </div>
     </header>
 
-    <!-- VIDEO HERO SECTION -->
-    <section class="hero-video">
-        <video autoplay muted loop class="background-video">
-            <source src="../content/video/introduction_video.mp4" type="video/mp4">
-        </video>
-        <div class="hero-overlay"></div>
-        <div class="hero-content">
-            <p class="hero-subtitle">a new perspective on mental health</p>
-            <h1 class="hero-title">your struggle is a call to adventure</h1>
-        </div>
-    </section>
-
-    <!-- PROJECT INTRODUCTION -->
-    <section class="project-intro">
-        <div class="project-intro-inner">
-            <p class="project-intro-kicker">What is SIMBA?</p>
-            <h2>The site helps you explore mental health topics in a simple way.</h2>
-            <p>SIMBA is built around short tests and clear pages for each notion. You can browse a theme, take a 10-question quiz, read your result, and save your scores in your profile if you log in.</p>
-            <p>The goal is to make each topic easy to understand and easy to revisit, so you can move from curiosity to self-observation without getting lost.</p>
-        </div>
-    </section>
-
-    <!-- CATEGORIES & THEMES SECTION -->
-    <section class="categories-section">
-        <div class="categories-container">
-            <!-- CATEGORIES BAR -->
-            <div class="categories-bar">
-                <button class="category-tab active" data-category="relationships">🌍 Relationships</button>
-                <button class="category-tab" data-category="mental-health">🧠 Mental Health</button>
-                <button class="category-tab" data-category="personal-growth">🌱 Growth</button>
-                <button class="category-tab" data-category="neurodiversity">🧩 Neurodiversity</button>
-                <button class="category-tab" data-category="mind-body">💭 Mind & Body</button>
+    <main class="forum-page">
+        <section class="forum-hero">
+            <div class="forum-hero-copy">
+                <p class="forum-kicker">Forum</p>
+                <h1>Ask, reply, and discuss the themes together.</h1>
+                <p>A short space for questions, support, and conversation. Post a message, answer others, and keep the discussion going.</p>
             </div>
-
-            <!-- THEMES GRID -->
-            <div class="themes-grid" id="themesGrid">
+            <div class="forum-hero-card">
+                <h2>How it works</h2>
+                <ul>
+                    <li>Post a question or a thought.</li>
+                    <li>Reply with support or advice.</li>
+                    <li>Keep it respectful.</li>
+                </ul>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- FOOTER -->
+        <section id="forumApp" class="forum-shell"></section>
+    </main>
+
     <footer class="footer">
         <div class="footer-container">
             <div class="footer-content">
@@ -92,7 +68,6 @@
         </div>
     </footer>
 
-    <!-- COOKIE BANNER -->
     <div id="cookieBanner" class="cookie-banner" aria-live="polite" hidden>
         <div class="cookie-inner">
             <p>Wir verwenden Cookies, um diese Website zu verbessern. Mehr dazu in unserer <a href="datenschutz.html">Datenschutzerklärung</a>.</p>
@@ -105,5 +80,6 @@
     </div>
 
     <script src="../js/script.js"></script>
+    <script src="../js/forum.js"></script>
 </body>
 </html>

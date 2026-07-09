@@ -133,6 +133,176 @@ function getDefaultProfileAvatar() {
     return '../content/img/profil.png';
 }
 
+function getStoredProfile(email) {
+    if (!email) return {};
+    try {
+        return JSON.parse(localStorage.getItem('simba_profile_' + email) || '{}');
+    } catch (e) {
+        return {};
+    }
+}
+
+function setStoredProfile(email, profile) {
+    if (!email) return profile || {};
+    const nextProfile = profile || {};
+    if (!Array.isArray(nextProfile.scores)) {
+        nextProfile.scores = [];
+    }
+    localStorage.setItem('simba_profile_' + email, JSON.stringify(nextProfile));
+    return nextProfile;
+}
+
+function mergeStoredProfile(email, patch) {
+    const currentProfile = getStoredProfile(email);
+    const nextProfile = { ...currentProfile, ...(patch || {}) };
+    if (!Array.isArray(nextProfile.scores)) {
+        nextProfile.scores = Array.isArray(currentProfile.scores) ? currentProfile.scores : [];
+    }
+    return setStoredProfile(email, nextProfile);
+}
+
+function appendProfileScore(scoreEntry) {
+    const currentUser = (() => {
+        try { return JSON.parse(localStorage.getItem('simba_user') || 'null'); } catch (e) { return null; }
+    })();
+    if (!currentUser || !currentUser.email) return null;
+
+    const currentProfile = getStoredProfile(currentUser.email);
+    const nextScores = Array.isArray(currentProfile.scores) ? currentProfile.scores.slice() : [];
+    nextScores.unshift(scoreEntry);
+
+    const nextProfile = {
+        ...currentProfile,
+        scores: nextScores.slice(0, 50)
+    };
+
+    setStoredProfile(currentUser.email, nextProfile);
+    return nextProfile;
+}
+
+function bindLogoToHome() {
+    const logo = document.querySelector('.logo-section img.logo');
+    if (!logo || logo.dataset.homeLinkBound === 'true') return;
+
+    const goHome = () => {
+        window.location.href = 'index.html';
+    };
+
+    logo.style.cursor = 'pointer';
+    logo.setAttribute('role', 'link');
+    logo.setAttribute('tabindex', '0');
+    logo.setAttribute('aria-label', 'Go to homepage');
+    logo.addEventListener('click', goHome);
+    logo.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            goHome();
+        }
+    });
+    logo.dataset.homeLinkBound = 'true';
+}
+
+function buildNavbarDropdowns() {
+    const navList = document.querySelector('.nav-list');
+    if (!navList || navList.dataset.dropdownReady === 'true') return;
+
+    const thematicsItems = Object.values(themesData).flat().map((theme) => ({
+        label: theme.name,
+        href: theme.link
+    }));
+
+    const testItems = [
+        { label: 'All tests', href: 'test.html' },
+        { label: 'Relationships', href: 'test.html#relationships' },
+        { label: 'Mental Health', href: 'test.html#mental-health' },
+        { label: 'Personal Growth', href: 'test.html#personal-growth' },
+        { label: 'Neurodiversity', href: 'test.html#neurodiversity' },
+        { label: 'Mind & Body', href: 'test.html#mind-body' }
+    ];
+
+    const buildSimpleLinks = (links) => `
+        <div class="nav-dropdown-links nav-dropdown-links--plain">
+            ${links.map((link) => `
+                <a href="${link.href}" class="nav-dropdown-link">
+                    <strong>${link.label}</strong>
+                </a>
+            `).join('')}
+        </div>
+    `;
+
+    const thematicsLink = navList.querySelector('a[href="index.html"]');
+    if (thematicsLink) {
+        thematicsLink.classList.add('nav-link--dropdown');
+        const thematicsItem = thematicsLink.closest('li');
+        if (thematicsItem && !thematicsItem.querySelector('.nav-dropdown')) {
+            thematicsItem.classList.add('nav-menu-item', 'has-dropdown');
+            thematicsItem.insertAdjacentHTML('beforeend', `
+                <div class="nav-dropdown nav-dropdown--thematics">
+                    ${buildSimpleLinks(thematicsItems)}
+                </div>
+            `);
+        }
+    }
+
+    const testLink = navList.querySelector('a[href="test.html"]');
+    if (testLink) {
+        testLink.classList.add('nav-link--dropdown');
+        const testItem = testLink.closest('li');
+        if (testItem && !testItem.querySelector('.nav-dropdown')) {
+            testItem.classList.add('nav-menu-item', 'has-dropdown');
+            testItem.insertAdjacentHTML('beforeend', `
+                <div class="nav-dropdown nav-dropdown--test">
+                    ${buildSimpleLinks(testItems)}
+                </div>
+            `);
+        }
+    }
+
+    if (!navList.querySelector('a[href="forum.html"]')) {
+        const forumItem = document.createElement('li');
+        forumItem.innerHTML = '<a href="forum.html" class="nav-link">Forum</a>';
+
+        const contactItem = navList.querySelector('a[href="contact.html"]')?.closest('li');
+        if (contactItem && contactItem.parentNode === navList) {
+            navList.insertBefore(forumItem, contactItem);
+        } else {
+            navList.appendChild(forumItem);
+        }
+    }
+
+    navList.querySelectorAll('.nav-menu-item.has-dropdown').forEach((item) => {
+        let closeTimer = null;
+
+        const openMenu = () => {
+            if (closeTimer) {
+                clearTimeout(closeTimer);
+                closeTimer = null;
+            }
+            item.classList.add('is-open');
+        };
+
+        const closeMenu = () => {
+            if (closeTimer) clearTimeout(closeTimer);
+            closeTimer = window.setTimeout(() => {
+                item.classList.remove('is-open');
+            }, 140);
+        };
+
+        item.addEventListener('mouseenter', openMenu);
+        item.addEventListener('mouseleave', closeMenu);
+        item.addEventListener('focusin', openMenu);
+        item.addEventListener('focusout', closeMenu);
+    });
+
+    const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+    const activeNav = navList.querySelector(`a[href="${currentPage}"]`);
+    if (activeNav) {
+        activeNav.classList.add('active');
+    }
+
+    navList.dataset.dropdownReady = 'true';
+}
+
 // Global auth header sync for every page.
 // This is intentionally outside DOMContentLoaded so it exists in the console
 // and can update the header even when called manually.
@@ -152,6 +322,10 @@ function updateAuthUI() {
         authSection.innerHTML = `<span class="user-greeting">${local.email}</span><button class="logout-btn">Sign out</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
     } else {
         authSection.innerHTML = `<button class="sign-up-btn">Sign Up</button><button class="login-btn">Login</button>`;
+    }
+
+    if (local && local.email && typeof window.flushPendingQuizScores === 'function') {
+        window.flushPendingQuizScores();
     }
 
     const profileBtn = authSection.querySelector('.profile-btn');
@@ -438,6 +612,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 if (!res.ok) { msg.innerText = data.error || 'Login failed'; return; }
                                 localStorage.setItem('simba_user', JSON.stringify({email}));
                                 updateAuthUI();
+                                if (typeof window.flushPendingQuizScores === 'function') window.flushPendingQuizScores();
                                 div.remove();
                                 return;
                             }
@@ -449,6 +624,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (u.password !== pw) { msg.innerText='Invalid credentials'; return; }
                     localStorage.setItem('simba_user', JSON.stringify({email}));
                     updateAuthUI();
+                    if (typeof window.flushPendingQuizScores === 'function') window.flushPendingQuizScores();
                     div.remove();
                 });
 
@@ -466,6 +642,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 if (!res.ok) { msg.innerText = data.error || 'Signup failed'; return; }
                                 localStorage.setItem('simba_user', JSON.stringify({email}));
                                 updateAuthUI();
+                                if (typeof window.flushPendingQuizScores === 'function') window.flushPendingQuizScores();
                                 div.remove();
                                 return;
                             }
@@ -476,6 +653,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const users = loadLocalUsers(); users.push({ email, password: pw, profile: {} }); saveLocalUsers(users);
                     localStorage.setItem('simba_user', JSON.stringify({email}));
                     updateAuthUI();
+                    if (typeof window.flushPendingQuizScores === 'function') window.flushPendingQuizScores();
                     div.remove();
                 });
 
@@ -586,6 +764,8 @@ document.addEventListener('DOMContentLoaded', function() {
         currentNav.classList.add('active');
     }
 
+    buildNavbarDropdowns();
+
     // Initialize auth UI
     // expose functions to window so pages loaded later can call them
     try {
@@ -593,6 +773,11 @@ document.addEventListener('DOMContentLoaded', function() {
             window.updateAuthUI = updateAuthUI;
             window.showAuthModal = showAuthModal;
             window.refreshProfileButton = refreshProfileButton;
+            window.getStoredProfile = getStoredProfile;
+            window.setStoredProfile = setStoredProfile;
+            window.mergeStoredProfile = mergeStoredProfile;
+            window.appendProfileScore = appendProfileScore;
+            window.flushPendingQuizScores = flushPendingQuizScores;
             window.openProfileEditor = function() {
                 if (typeof window.showAuthModal === 'function') {
                     window.showAuthModal('profile');
@@ -600,6 +785,7 @@ document.addEventListener('DOMContentLoaded', function() {
             };
         }
     } catch (e) {}
+    bindLogoToHome();
     updateAuthUI();
 });
 

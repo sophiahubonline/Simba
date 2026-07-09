@@ -65,8 +65,9 @@
                 </div>
                 <div class="profile-section">
                     <h3>Score history</h3>
-                    <p>(No tests yet) — historique à venir</p>
+                    <p id="scores_count_label">No tests yet</p>
                     <ul id="scores_list" class="profile-history"></ul>
+                    <button id="scores_toggle_btn" class="score-history-toggle" type="button" hidden>See more</button>
                 </div>
             </section>
         </div>
@@ -83,6 +84,51 @@
 
     <script src="../js/script.js"></script>
     <script>
+        let scoreHistoryExpanded = false;
+
+        function getScoreHistoryCopy(scores) {
+            return Array.isArray(scores) ? scores.slice() : [];
+        }
+
+        function renderScoreHistory(scores) {
+            const ul = document.getElementById('scores_list');
+            const toggleBtn = document.getElementById('scores_toggle_btn');
+            const countLabel = document.getElementById('scores_count_label');
+            if (!ul) return;
+
+            const safeScores = getScoreHistoryCopy(scores);
+            const visibleScores = scoreHistoryExpanded ? safeScores : safeScores.slice(0, 5);
+
+            ul.innerHTML = '';
+
+            if (countLabel) {
+                countLabel.textContent = safeScores.length === 0
+                    ? 'No tests yet'
+                    : scoreHistoryExpanded
+                        ? `Showing all ${safeScores.length} results`
+                        : `Showing your 5 most recent results`;
+            }
+
+            if (safeScores.length === 0) {
+                ul.innerHTML = '<li>No scores yet</li>';
+            } else {
+                visibleScores.forEach(s => {
+                    const li = document.createElement('li');
+                    const dateLabel = s && s.date ? formatDate(s.date) : 'Unknown date';
+                    const resultText = s && typeof s.percentage === 'number' ? s.percentage + '%' : 'n/a';
+                    li.innerHTML = `<strong>${s && s.title ? s.title : 'Test'}</strong><div>${resultText} - ${s && s.label ? s.label : 'Result'}</div><small>${dateLabel}</small>`;
+                    ul.appendChild(li);
+                });
+            }
+
+            if (toggleBtn) {
+                const hasMoreThanFive = safeScores.length > 5;
+                toggleBtn.hidden = !hasMoreThanFive;
+                toggleBtn.textContent = scoreHistoryExpanded ? 'Show less' : 'See more';
+                toggleBtn.classList.toggle('is-expanded', scoreHistoryExpanded);
+            }
+        }
+
         // render profile page using functions in script.js
         async function loadProfilePage() {
             const current = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(e){ return null; } })();
@@ -111,11 +157,8 @@
             document.getElementById('profile_name').innerText = profile.name || current.email;
             document.getElementById('profile_bio').innerText = profile.bio || '';
 
-            const scores = profile.scores || [];
-            const ul = document.getElementById('scores_list');
-            ul.innerHTML = '';
-            if (scores.length === 0) { ul.innerHTML = '<li>No scores yet</li>'; }
-            else scores.forEach(s => { const li = document.createElement('li'); li.innerText = s; ul.appendChild(li); });
+            const scores = Array.isArray(profile.scores) ? profile.scores : [];
+            renderScoreHistory(scores);
 
             const editor = document.getElementById('profile_editor');
             const editorName = document.getElementById('editor_name');
@@ -181,7 +224,8 @@
             const name = document.getElementById('editor_name').value.trim();
             const bio = document.getElementById('editor_bio').value.trim();
             const avatar = editor.dataset.currentAvatar || '../content/img/profil.png';
-            const newProfile = { name, bio, avatar };
+            const existingProfile = (()=>{ try { return JSON.parse(localStorage.getItem('simba_profile_' + current.email) || '{}'); } catch(e){ return {}; } })();
+            const newProfile = { ...existingProfile, name, bio, avatar };
             localStorage.setItem('simba_profile_' + current.email, JSON.stringify(newProfile));
             document.getElementById('profile_avatar').src = avatar;
             document.getElementById('profile_name').innerText = name || current.email;
@@ -197,6 +241,14 @@
             alert('Profile saved');
         });
 
+        function formatDate(dateString) {
+            try {
+                return new Date(dateString).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+            } catch (e) {
+                return 'Unknown date';
+            }
+        }
+
         // live update when profile is changed elsewhere
         window.addEventListener('simba-profile-updated', function(e){
             const profile = e && e.detail ? e.detail : null;
@@ -206,14 +258,27 @@
                 document.getElementById('profile_avatar').src = profile.avatar || '../content/img/profil.png';
                 document.getElementById('profile_name').innerText = profile.name || current.email;
                 document.getElementById('profile_bio').innerText = profile.bio || '';
+                const scores = Array.isArray(profile.scores) ? profile.scores : [];
+                    renderScoreHistory(scores);
                 if (typeof window.refreshProfileButton === 'function') {
                     window.refreshProfileButton();
                 }
             } else {
-                try { const p = JSON.parse(localStorage.getItem('simba_profile_'+current.email)||'{}'); if (p) { document.getElementById('profile_avatar').src = p.avatar||'../content/img/profil.png'; document.getElementById('profile_name').innerText = p.name||current.email; document.getElementById('profile_bio').innerText = p.bio||''; } } catch(e){}
+                    try { const p = JSON.parse(localStorage.getItem('simba_profile_'+current.email)||'{}'); if (p) { document.getElementById('profile_avatar').src = p.avatar||'../content/img/profil.png'; document.getElementById('profile_name').innerText = p.name||current.email; document.getElementById('profile_bio').innerText = p.bio||''; const scores = Array.isArray(p.scores) ? p.scores : []; renderScoreHistory(scores); } } catch(e){}
                 if (typeof window.refreshProfileButton === 'function') {
                     window.refreshProfileButton();
                 }
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            if (e.target && e.target.id === 'scores_toggle_btn') {
+                e.preventDefault();
+                scoreHistoryExpanded = !scoreHistoryExpanded;
+                const current = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(err){ return null; } })();
+                if (!current || !current.email) return;
+                const profile = (()=>{ try { return JSON.parse(localStorage.getItem('simba_profile_' + current.email) || '{}'); } catch(err){ return {}; } })();
+                renderScoreHistory(Array.isArray(profile.scores) ? profile.scores : []);
             }
         });
     </script>
