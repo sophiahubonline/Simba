@@ -31,16 +31,18 @@
 
     <!-- PAGE CONTENT -->
     <div class="page-container">
-        <h1 class="page-title">Contact Us</h1>
+        <h1 class="page-title" data-i18n="pages.contact.title">Contact Us</h1>
         <div class="page-content">
-            <p>We'd love to hear from you! Whether you have questions, feedback, or just want to share your thoughts about the SIMBA PROJECT, please feel free to reach out.</p>
-            <p>Your input is invaluable in helping us create a better, more supportive community for everyone on their mental health journey.</p>
-            <p>Coming soon: Contact form and direct messaging to our support team.</p>
-            <p>In the meantime, you can reach us through our social media channels:</p>
+            <p data-i18n="pages.contact.body1">We'd love to hear from you! Whether you have questions, feedback, or just want to share your thoughts about the SIMBA PROJECT, please feel free to reach out.</p>
+            <p data-i18n="pages.contact.body2">Your input is invaluable in helping us create a better, more supportive community for everyone on their mental health journey.</p>
+            <p data-i18n="pages.contact.body4">In the meantime, you can reach us through our social media channels:</p>
+            <div style="margin-top: 1.5rem;">
+                <button id="contactMessageBtn" class="btn-primary" type="button" data-i18n="pages.contact.messageButton">Send a private message</button>
+            </div>
             <ul style="margin-top: 1.5rem; margin-left: 2rem;">
-                <li style="margin-bottom: 0.5rem;">YouTube: @simbaproject</li>
-                <li style="margin-bottom: 0.5rem;">Instagram: @simbaproject</li>
-                <li style="margin-bottom: 0.5rem;">WhatsApp: Available for support and questions</li>
+                <li style="margin-bottom: 0.5rem;" data-i18n="pages.contact.youtube">YouTube: @simbaproject</li>
+                <li style="margin-bottom: 0.5rem;" data-i18n="pages.contact.instagram">Instagram: @simbaproject</li>
+                <li style="margin-bottom: 0.5rem;" data-i18n="pages.contact.whatsapp">WhatsApp: Available for support and questions</li>
             </ul>
         </div>
     </div>
@@ -56,7 +58,7 @@
                 <a href="https://youtube.com" target="_blank" class="social-icon">
                     <img src="../content/img/youtube.png" alt="YouTube">
                 </a>
-                <a href="https://instagram.com" target="_blank" class="social-icon">
+                <a href="https://www.instagram.com/the.simba.journey/" target="_blank" class="social-icon">
                     <img src="../content/img/instagram.png" alt="Instagram">
                 </a>
                 <a href="https://wa.me" target="_blank" class="social-icon">
@@ -78,6 +80,27 @@
         </div>
     </div>
 
+    <script src="../js/i18n.js"></script>
     <script src="../js/script.js"></script>
+    <script>
+        const contactMessageBtn = document.getElementById('contactMessageBtn');
+        if (contactMessageBtn) {
+            contactMessageBtn.addEventListener('click', function() {
+                let currentUser = null;
+                try { currentUser = JSON.parse(localStorage.getItem('simba_user') || 'null'); } catch (error) { currentUser = null; }
+
+                if (!currentUser || !currentUser.email) {
+                    if (typeof window.showAuthModal === 'function') {
+                        window.showAuthModal('login');
+                    } else {
+                        window.alert('Please log in to send a private message.');
+                    }
+                    return;
+                }
+
+                window.location.href = 'messages.html';
+            });
+        }
+    </script>
 </body>
 </html>

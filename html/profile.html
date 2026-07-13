@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Profile - SIMBA PROJECT</title>
+    <title data-i18n="profile.pageTitle">Profile - SIMBA PROJECT</title>
     <link rel="icon" type="image/png" href="../content/img/simba.png">
     <link rel="stylesheet" href="../css/style.css">
 </head>
@@ -32,11 +32,11 @@
         <div class="profile-card">
             <aside class="profile-sidebar">
                 <img id="profile_avatar" class="profile-avatar" src="../content/img/profil.png" alt="avatar" />
-                <div id="profile_name" class="profile-name">Your name</div>
-                <div id="profile_bio" class="profile-bio">Your bio</div>
+                <div id="profile_name" class="profile-name" data-i18n="profile.yourName">Your name</div>
+                <div id="profile_bio" class="profile-bio" data-i18n="profile.yourBio">Your bio</div>
                 <div class="profile-actions">
                     <button id="edit_profile_btn" class="btn-edit" type="button" data-i18n="profile.editProfile">Edit profile</button>
-                    <button id="message_btn" class="btn-primary" data-i18n="profile.message">Message</button>
+                    <button id="message_btn" class="btn-primary" type="button" data-i18n="profile.message">Message</button>
                 </div>
                 <div style="margin-top:1rem" class="profile-section">
                     <div style="font-weight:700;color:var(--color-navy);margin-bottom:6px" data-i18n="profile.quickStats">Quick stats</div>
@@ -63,6 +63,42 @@
                     <h3 data-i18n="profile.about">About</h3>
                     <p id="about_text" data-i18n="profile.aboutBody">This is your profile. You can update your display name, bio and avatar.</p>
                 </div>
+                <div id="profile_notifications_section" class="profile-section">
+                    <h3 data-i18n="profile.notifications">Notifications</h3>
+                    <ul id="profile_notifications_list" class="profile-history"></ul>
+                </div>
+                <div id="admin_tools_section" class="profile-section" hidden>
+                    <h3 data-i18n="profile.adminTools">Admin tools</h3>
+                    <p data-i18n="profile.adminToolsDescription">Promote or revoke admin access for existing accounts.</p>
+                    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-start">
+                        <input id="profile_admin_email" type="email" placeholder="user@example.com" data-i18n-placeholder="profile.adminEmailPlaceholder" style="flex:1 1 260px;padding:0.7rem;border-radius:10px;border:1px solid #d6d0c6" />
+                        <button id="profile_promote_admin_btn" class="btn-primary" type="button" data-i18n="profile.makeAdmin">Make admin</button>
+                        <button id="profile_revoke_admin_btn" class="btn-edit" type="button" data-i18n="profile.removeAdmin">Remove admin</button>
+                    </div>
+                    <p id="profile_admin_message" style="margin-top:0.6rem"></p>
+                </div>
+                <div id="admin_lookup_section" class="profile-section" hidden>
+                    <h3 data-i18n="profile.viewProfile">View a profile</h3>
+                    <p data-i18n="profile.viewProfileDescription">Open another account to inspect its profile and forum activity.</p>
+                    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-start">
+                        <input id="profile_lookup_email" type="email" placeholder="user@example.com" data-i18n-placeholder="profile.profileLookupPlaceholder" style="flex:1 1 260px;padding:0.7rem;border-radius:10px;border:1px solid #d6d0c6" />
+                        <button id="profile_lookup_btn" class="btn-primary" type="button" data-i18n="profile.openProfile">Open profile</button>
+                        <button id="profile_back_to_me_btn" class="btn-edit" type="button" data-i18n="profile.backToMyProfile">Back to my profile</button>
+                    </div>
+                </div>
+                <div id="admin_activity_section" class="profile-section" hidden>
+                    <h3 data-i18n="profile.forumActivity">Forum activity</h3>
+                    <div style="display:grid;gap:1rem">
+                        <div>
+                            <h4 style="margin:0 0 0.5rem" data-i18n="profile.activePosts">Active posts</h4>
+                            <ul id="admin_active_posts" class="profile-history"></ul>
+                        </div>
+                        <div>
+                            <h4 style="margin:0 0 0.5rem" data-i18n="profile.deletedPosts">Deleted posts</h4>
+                            <ul id="admin_deleted_posts" class="profile-history"></ul>
+                        </div>
+                    </div>
+                </div>
                 <div class="profile-section">
                     <h3 data-i18n="profile.scoreHistory">Score history</h3>
                     <p id="scores_count_label" data-i18n="profile.noTestsYet">No tests yet</p>
@@ -79,6 +115,17 @@
                 <p>&copy; 2024 SIMBA PROJECT - Hero's Journey. All rights reserved.</p>
                 <p class="footer-links"><a href="impressum.html">Impressum</a> | <a href="datenschutz.html">Datenschutzerklärung</a></p>
             </div>
+            <div class="social-links">
+                <a href="https://youtube.com" target="_blank" class="social-icon">
+                    <img src="../content/img/youtube.png" alt="YouTube">
+                </a>
+                <a href="https://www.instagram.com/the.simba.journey/" target="_blank" class="social-icon">
+                    <img src="../content/img/instagram.png" alt="Instagram">
+                </a>
+                <a href="https://wa.me" target="_blank" class="social-icon">
+                    <img src="../content/img/whatsapp.png" alt="WhatsApp">
+                </a>
+            </div>
         </div>
     </footer>
 
@@ -88,6 +135,21 @@
         const t = (key, fallback = '') => (window.SimbaI18n && typeof window.SimbaI18n.getTranslation === 'function') ? window.SimbaI18n.getTranslation(key, fallback) : fallback;
         const getLocale = () => (window.SimbaI18n && typeof window.SimbaI18n.getLocale === 'function') ? window.SimbaI18n.getLocale(window.SimbaI18n.getCurrentLanguage()) : 'en-US';
         let scoreHistoryExpanded = false;
+        let viewingEmail = '';
+        let viewingProfileIsAdminSelected = false;
+
+        function normalizeEmail(value) {
+            return String(value || '').trim().toLowerCase();
+        }
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
 
         function getScoreHistoryCopy(scores) {
             return Array.isArray(scores) ? scores.slice() : [];
@@ -132,8 +194,83 @@
             }
         }
 
+        function renderNotifications(email) {
+            const list = document.getElementById('profile_notifications_list');
+            const section = document.getElementById('profile_notifications_section');
+            if (!list || !section) return;
+
+            const notifications = typeof window.getUserNotifications === 'function' ? window.getUserNotifications(email) : [];
+            list.innerHTML = '';
+
+            if (!notifications.length) {
+                list.innerHTML = `<li>${t('profile.noNotifications', 'No notifications yet')}</li>`;
+                return;
+            }
+
+            function getNotificationTitle(notification) {
+                if (!notification) return t('profile.notification', 'Notification');
+
+                if (notification.type === 'forum-post-deleted') {
+                    return t('forum.postDeletedNotificationTitle', notification.title || 'Your forum post was deleted');
+                }
+
+                if (notification.type === 'private-message') {
+                    return notification.senderRole === 'admin'
+                        ? t('messages.newAdminReply', notification.title || 'New admin reply')
+                        : t('messages.newPrivateMessage', notification.title || 'New private message');
+                }
+
+                if (notification.title === 'New admin reply') return t('messages.newAdminReply', notification.title);
+                if (notification.title === 'New private message') return t('messages.newPrivateMessage', notification.title);
+                if (notification.title === 'Your forum post was deleted') return t('forum.postDeletedNotificationTitle', notification.title);
+
+                return notification.title || t('profile.notification', 'Notification');
+            }
+
+            notifications.forEach((notification) => {
+                const item = document.createElement('li');
+                const reason = notification.reason ? ` ${notification.reason}` : '';
+                item.innerHTML = `<strong>${getNotificationTitle(notification)}</strong><div>${notification.body || ''}${reason ? `<br><small>${reason}</small>` : ''}</div><small>${formatDate(notification.createdAt)}</small>`;
+                list.appendChild(item);
+            });
+        }
+
+        function renderForumActivity(email) {
+            const activitySection = document.getElementById('admin_activity_section');
+            const activeList = document.getElementById('admin_active_posts');
+            const deletedList = document.getElementById('admin_deleted_posts');
+            if (!activitySection || !activeList || !deletedList) return;
+
+            const activity = typeof window.getForumActivityForEmail === 'function' ? window.getForumActivityForEmail(email) : { activePosts: [], deletedPosts: [] };
+            activeList.innerHTML = '';
+            deletedList.innerHTML = '';
+
+            const renderPostItem = (post, isDeleted) => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <strong>${post.type === 'reply' ? t('profile.replyLabel', 'Reply') : t('profile.postLabel', 'Post')}: ${post.title || t('profile.test', 'Test')}</strong>
+                    <div>${post.category || ''}</div>
+                    <small>${formatDate(post.createdAt)}${isDeleted && post.deletionReason ? ` - ${post.deletionReason}` : ''}</small>
+                `;
+                return li;
+            };
+
+            if (!activity.activePosts.length) {
+                activeList.innerHTML = `<li>${t('profile.noPostsYet', 'No posts yet')}</li>`;
+            } else {
+                activity.activePosts.forEach((post) => activeList.appendChild(renderPostItem(post, false)));
+            }
+
+            if (!activity.deletedPosts.length) {
+                deletedList.innerHTML = `<li>${t('profile.noDeletedPostsYet', 'No deleted posts yet')}</li>`;
+            } else {
+                activity.deletedPosts.forEach((post) => deletedList.appendChild(renderPostItem(post, true)));
+            }
+        }
+
         // render profile page using functions in script.js
         async function loadProfilePage() {
+            document.title = t('profile.pageTitle', 'Profile - SIMBA PROJECT');
             const current = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(e){ return null; } })();
             if (!current || !current.email) {
                 document.getElementById('profile_name').innerText = t('profile.notLoggedIn', 'Not logged in');
@@ -141,8 +278,38 @@
                 return;
             }
 
+            const currentRole = current.role || (typeof window.getUserRoleByEmail === 'function' ? window.getUserRoleByEmail(current.email) : 'user');
+            const canManageAdminAccess = typeof window.canManageAdminAccess === 'function' ? window.canManageAdminAccess(current.email) : false;
+            const requestedEmail = new URL(window.location.href).searchParams.get('user');
+            viewingEmail = currentRole === 'admin' && requestedEmail ? requestedEmail : current.email;
+            viewingProfileIsAdminSelected = viewingEmail !== current.email && currentRole === 'admin';
+            const adminToolsSection = document.getElementById('admin_tools_section');
+            if (adminToolsSection) {
+                adminToolsSection.hidden = !canManageAdminAccess;
+            }
+            const adminLookupSection = document.getElementById('admin_lookup_section');
+            const adminActivitySection = document.getElementById('admin_activity_section');
+            if (adminLookupSection) adminLookupSection.hidden = currentRole !== 'admin';
+            if (adminActivitySection) adminActivitySection.hidden = currentRole !== 'admin';
+            const profileEditor = document.getElementById('profile_editor');
+            const editProfileBtn = document.getElementById('edit_profile_btn');
+            const messageBtn = document.getElementById('message_btn');
+            const profileActions = document.querySelector('.profile-actions');
+            const canEditViewedProfile = viewingEmail === current.email;
+            if (profileEditor) profileEditor.hidden = !canEditViewedProfile;
+            if (editProfileBtn) editProfileBtn.hidden = !canEditViewedProfile;
+            if (messageBtn) {
+                messageBtn.onclick = function(event) {
+                    event.preventDefault();
+                    const url = new URL(window.location.href);
+                    url.pathname = url.pathname.replace(/profile\.html$/i, 'messages.html');
+                    url.searchParams.set('user', viewingEmail);
+                    window.location.href = url.toString();
+                };
+            }
+
             let profile = {};
-            try { profile = JSON.parse(localStorage.getItem('simba_profile_'+current.email)||'{}'); } catch(e){}
+            try { profile = JSON.parse(localStorage.getItem('simba_profile_'+viewingEmail)||'{}'); } catch(e){}
             if (!profile || Object.keys(profile).length === 0) {
                 try {
                     const ping = await fetch('/api/ping');
@@ -157,37 +324,54 @@
             }
 
             document.getElementById('profile_avatar').src = profile.avatar || '../content/img/profil.png';
-            document.getElementById('profile_name').innerText = profile.name || current.email;
+            document.getElementById('profile_name').innerText = profile.name || viewingEmail;
             document.getElementById('profile_bio').innerText = profile.bio || '';
+
+            if (currentRole === 'admin') {
+                const profileName = document.getElementById('profile_name');
+                if (profileName && !profileName.querySelector('.user-role-badge')) {
+                    profileName.insertAdjacentHTML('beforeend', `<span class="user-role-badge user-role-badge--admin">${t('profile.adminBadge', 'Admin')}</span>`);
+                }
+            }
 
             const scores = Array.isArray(profile.scores) ? profile.scores : [];
             renderScoreHistory(scores);
+            renderNotifications(viewingEmail);
+            renderForumActivity(viewingEmail);
+
+            const lookupInput = document.getElementById('profile_lookup_email');
+            if (lookupInput) lookupInput.value = viewingEmail;
+
+            const backBtn = document.getElementById('profile_back_to_me_btn');
+            if (backBtn) backBtn.disabled = !viewingProfileIsAdminSelected;
 
             const editor = document.getElementById('profile_editor');
             const editorName = document.getElementById('editor_name');
             const editorBio = document.getElementById('editor_bio');
             const editorChoices = document.getElementById('editor_avatar_choices');
-            editorName.value = profile.name || current.email;
-            editorBio.value = profile.bio || '';
-            editor.dataset.currentAvatar = profile.avatar || '';
-            editorChoices.innerHTML = '';
-            for (let i = 1; i <= 6; i++) {
-                const src = `../content/img/profil${i}.png`;
-                const img = document.createElement('img');
-                img.src = src;
-                img.alt = `Avatar ${i}`;
-                img.style.width = '54px';
-                img.style.height = '54px';
-                img.style.borderRadius = '10px';
-                img.style.cursor = 'pointer';
-                img.style.objectFit = 'cover';
-                img.style.border = editor.dataset.currentAvatar === src ? '2px solid #007bff' : '2px solid transparent';
-                img.addEventListener('click', ()=>{
-                    editor.dataset.currentAvatar = src;
-                    editorChoices.querySelectorAll('img').forEach(node => node.style.border = '2px solid transparent');
-                    img.style.border = '2px solid #007bff';
-                });
-                editorChoices.appendChild(img);
+            if (editor && canEditViewedProfile) {
+                editorName.value = profile.name || current.email;
+                editorBio.value = profile.bio || '';
+                editor.dataset.currentAvatar = profile.avatar || '';
+                editorChoices.innerHTML = '';
+                for (let i = 1; i <= 6; i++) {
+                    const src = `../content/img/profil${i}.png`;
+                    const img = document.createElement('img');
+                    img.src = src;
+                    img.alt = `Avatar ${i}`;
+                    img.style.width = '54px';
+                    img.style.height = '54px';
+                    img.style.borderRadius = '10px';
+                    img.style.cursor = 'pointer';
+                    img.style.objectFit = 'cover';
+                    img.style.border = editor.dataset.currentAvatar === src ? '2px solid #007bff' : '2px solid transparent';
+                    img.addEventListener('click', ()=>{
+                        editor.dataset.currentAvatar = src;
+                        editorChoices.querySelectorAll('img').forEach(node => node.style.border = '2px solid transparent');
+                        img.style.border = '2px solid #007bff';
+                    });
+                    editorChoices.appendChild(img);
+                }
             }
         }
 
@@ -246,7 +430,58 @@
                 window.updateAuthUI();
             }
             try { window.dispatchEvent(new CustomEvent('simba-profile-updated', { detail: newProfile })); } catch(e){}
-            alert('Profile saved');
+            alert(t('profile.profileSaved', 'Profile saved'));
+        });
+
+        document.getElementById('profile_promote_admin_btn')?.addEventListener('click', function(){
+            const emailInput = document.getElementById('profile_admin_email');
+            const message = document.getElementById('profile_admin_message');
+            const targetEmail = (emailInput && emailInput.value || '').trim();
+            if (!targetEmail) {
+                if (message) message.textContent = t('profile.enterEmailFirst', 'Enter an account email first.');
+                return;
+            }
+            const result = typeof window.promoteLocalUserToAdmin === 'function'
+                ? window.promoteLocalUserToAdmin(targetEmail)
+                : { ok: false, reason: 'unavailable' };
+            if (!result.ok) {
+                if (message) message.textContent = result.reason === 'not-found' ? t('profile.accountNotFound', 'Account not found.') : t('profile.couldNotPromote', 'Could not promote this account.');
+                return;
+            }
+            if (message) message.textContent = t('profile.adminGranted', 'Admin granted.');
+        });
+
+        document.getElementById('profile_revoke_admin_btn')?.addEventListener('click', function(){
+            const emailInput = document.getElementById('profile_admin_email');
+            const message = document.getElementById('profile_admin_message');
+            const targetEmail = (emailInput && emailInput.value || '').trim();
+            if (!targetEmail) {
+                if (message) message.textContent = t('profile.enterEmailFirst', 'Enter an account email first.');
+                return;
+            }
+            const result = typeof window.revokeLocalUserAdmin === 'function'
+                ? window.revokeLocalUserAdmin(targetEmail)
+                : { ok: false, reason: 'unavailable' };
+            if (!result.ok) {
+                if (message) message.textContent = result.reason === 'not-found' ? t('profile.accountNotFound', 'Account not found.') : t('profile.couldNotRemove', 'Could not remove admin access.');
+                return;
+            }
+            if (message) message.textContent = t('profile.adminAccessRemoved', 'Admin access removed.');
+        });
+
+        document.getElementById('profile_lookup_btn')?.addEventListener('click', function(){
+            const emailInput = document.getElementById('profile_lookup_email');
+            const targetEmail = (emailInput && emailInput.value || '').trim();
+            if (!targetEmail) return;
+            const url = new URL(window.location.href);
+            url.searchParams.set('user', targetEmail);
+            window.location.href = url.toString();
+        });
+
+        document.getElementById('profile_back_to_me_btn')?.addEventListener('click', function(){
+            const url = new URL(window.location.href);
+            url.searchParams.delete('user');
+            window.location.href = url.toString();
         });
 
         function formatDate(dateString) {

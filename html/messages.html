@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="messages.title">Messages - SIMBA PROJECT</title>
+    <link rel="icon" type="image/png" href="../content/img/simba.png">
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="header-container">
+            <div class="logo-section">
+                <img src="../content/img/simba.png" alt="SIMBA PROJECT Logo" class="logo">
+            </div>
+            <nav class="navbar">
+                <ul class="nav-list">
+                    <li><a href="index.html" class="nav-link">Thematics</a></li>
+                    <li><a href="test.html" class="nav-link">Test</a></li>
+                    <li><a href="forum.html" class="nav-link">Forum</a></li>
+                    <li><a href="contact.html" class="nav-link">Contact Us</a></li>
+                    <li><a href="about-us.html" class="nav-link">About Us</a></li>
+                </ul>
+            </nav>
+            <div class="auth-section">
+                <button class="sign-up-btn">Sign Up</button>
+                <button class="login-btn">Login</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="profile-page">
+        <div class="profile-card messages-page">
+            <aside class="profile-sidebar messages-sidebar">
+                <img id="messages_avatar" class="profile-avatar" src="../content/img/profil.png" alt="avatar" />
+                <div id="messages_name" class="profile-name">Messages</div>
+                <div id="messages_bio" class="profile-bio">Private conversations and admin inbox.</div>
+                <div class="profile-actions">
+                    <button id="messages_refresh_btn" class="btn-edit" type="button" data-i18n="messages.refresh">Refresh</button>
+                </div>
+                <div class="profile-section">
+                    <div id="messages_overview_label" style="font-weight:700;color:var(--color-navy);margin-bottom:6px" data-i18n="messages.overview">Overview</div>
+                    <div class="profile-grid">
+                        <div class="profile-stat"><h4 data-i18n="messages.threads">Threads</h4><div id="messages_thread_count">0</div></div>
+                        <div class="profile-stat"><h4 data-i18n="messages.unread">Unread</h4><div id="messages_unread_count">0</div></div>
+                        <div class="profile-stat"><h4 data-i18n="messages.role">Role</h4><div id="messages_role_label">User</div></div>
+                    </div>
+                </div>
+            </aside>
+            <section class="profile-main">
+                <div class="profile-section profile-message-panel messages-header">
+                    <div class="profile-message-panel__header">
+                        <div>
+                            <h3 id="messages_heading" data-i18n="messages.heading">Messages</h3>
+                            <p id="messages_hint" data-i18n="messages.hint">Open a private conversation and reply without posting publicly.</p>
+                        </div>
+                        <span id="messages_status" class="profile-message-status"></span>
+                    </div>
+                </div>
+                <div class="profile-section profile-message-panel">
+                    <div class="profile-message-layout">
+                        <aside id="messages_thread_list" class="profile-message-list"></aside>
+                        <section class="profile-message-thread">
+                            <div id="messages_thread_header" class="profile-message-thread__header"></div>
+                            <div id="messages_thread_body" class="profile-message-thread__body"></div>
+                            <form id="messages_form" class="profile-message-form">
+                                <textarea id="messages_input" rows="4" maxlength="2000" data-i18n-placeholder="messages.writePrivateMessage" placeholder="Write a private message..."></textarea>
+                                <div class="profile-message-form__actions">
+                                    <button id="messages_send_btn" class="btn-primary" type="submit" data-i18n="messages.sendMessage">Send message</button>
+                                </div>
+                            </form>
+                        </section>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-content">
+                <p>&copy; 2024 SIMBA PROJECT - Hero's Journey. All rights reserved.</p>
+                <p class="footer-links"><a href="impressum.html">Impressum</a> | <a href="datenschutz.html">Datenschutzerklärung</a></p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../js/i18n.js"></script>
+    <script src="../js/script.js"></script>
+    <script>
+        const t = (key, fallback = '') => (window.SimbaI18n && typeof window.SimbaI18n.getTranslation === 'function') ? window.SimbaI18n.getTranslation(key, fallback) : fallback;
+        const getLocale = () => (window.SimbaI18n && typeof window.SimbaI18n.getLocale === 'function') ? window.SimbaI18n.getLocale(window.SimbaI18n.getCurrentLanguage()) : 'en-US';
+        const SIMBA_PRIVATE_MESSAGES_KEY = 'simba_private_messages';
+        let activeThreadEmail = '';
+        let currentUserEmail = '';
+        let currentUserRole = 'user';
+
+        function normalizeEmail(value) {
+            return String(value || '').trim().toLowerCase();
+        }
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
+
+        function formatDate(dateString) {
+            try {
+                return new Date(dateString).toLocaleDateString(getLocale(), { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            } catch (error) {
+                return '';
+            }
+        }
+
+        function getCurrentSessionUser() {
+            try {
+                const current = JSON.parse(localStorage.getItem('simba_user') || 'null');
+                if (!current || !current.email) return null;
+                return current;
+            } catch (error) {
+                return null;
+            }
+        }
+
+        function getStoredProfile(email) {
+            if (!email) return {};
+            try {
+                return JSON.parse(localStorage.getItem('simba_profile_' + email) || '{}');
+            } catch (error) {
+                return {};
+            }
+        }
+
+        function getAvatarForEmail(email) {
+            const profile = getStoredProfile(email);
+            return (profile && profile.avatar) || '../content/img/profil.png';
+        }
+
+        function translateMessagesPage() {
+            document.title = t('messages.title', 'Messages - SIMBA PROJECT');
+            const avatar = document.getElementById('messages_avatar');
+            const name = document.getElementById('messages_name');
+            const bio = document.getElementById('messages_bio');
+            const refresh = document.getElementById('messages_refresh_btn');
+            const overview = document.getElementById('messages_overview_label');
+            const threadsLabel = document.querySelector('#messages_thread_count')?.closest('.profile-stat')?.querySelector('h4');
+            const unreadLabel = document.querySelector('#messages_unread_count')?.closest('.profile-stat')?.querySelector('h4');
+            const roleLabel = document.querySelector('#messages_role_label')?.closest('.profile-stat')?.querySelector('h4');
+            const heading = document.getElementById('messages_heading');
+            const hint = document.getElementById('messages_hint');
+            const input = document.getElementById('messages_input');
+            const sendButton = document.getElementById('messages_send_btn');
+
+            if (avatar) avatar.alt = t('messages.pageTitle', 'Messages');
+            if (name) name.textContent = t('messages.pageTitle', 'Messages');
+            if (bio) bio.textContent = t('messages.sidebarBody', 'Private conversations and admin inbox.');
+            if (refresh) refresh.textContent = t('messages.refresh', 'Refresh');
+            if (overview) overview.textContent = t('messages.overview', 'Overview');
+            if (threadsLabel) threadsLabel.textContent = t('messages.threads', 'Threads');
+            if (unreadLabel) unreadLabel.textContent = t('messages.unread', 'Unread');
+            if (roleLabel) roleLabel.textContent = t('messages.role', 'Role');
+            if (heading) heading.textContent = t('messages.heading', 'Messages');
+            if (hint) hint.textContent = t('messages.hint', 'Open a private conversation and reply without posting publicly.');
+            if (input) input.placeholder = t('messages.writePrivateMessage', 'Write a private message...');
+            if (sendButton) sendButton.textContent = t('messages.sendMessage', 'Send message');
+        }
+
+        function getLocalUsers() {
+            try {
+                return JSON.parse(localStorage.getItem('simba_local_users') || '[]');
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function getThreadParticipantName(email) {
+            if (!email) return 'Guest';
+            const profile = getStoredProfile(email);
+            const localUser = getLocalUsers().find((user) => normalizeEmail(user && user.email) === normalizeEmail(email));
+            return (profile && profile.name) || (localUser && localUser.profile && localUser.profile.name) || email;
+        }
+
+        function getPrivateMessageThreads() {
+            try {
+                const items = JSON.parse(localStorage.getItem(SIMBA_PRIVATE_MESSAGES_KEY) || '[]');
+                return Array.isArray(items) ? items : [];
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function savePrivateMessageThreads(threads) {
+            localStorage.setItem(SIMBA_PRIVATE_MESSAGES_KEY, JSON.stringify(Array.isArray(threads) ? threads : []));
+        }
+
+        function ensurePrivateMessageThread(userEmail) {
+            const targetEmail = normalizeEmail(userEmail);
+            if (!targetEmail) return null;
+            const threads = getPrivateMessageThreads();
+            let thread = threads.find((item) => normalizeEmail(item.userEmail) === targetEmail) || null;
+            if (!thread) {
+                const profile = getStoredProfile(targetEmail);
+                thread = {
+                    id: 'private_' + targetEmail,
+                    userEmail: targetEmail,
+                    userName: (profile && profile.name) || targetEmail,
+                    userAvatar: (profile && profile.avatar) || '../content/img/profil.png',
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    messages: []
+                };
+                threads.unshift(thread);
+                savePrivateMessageThreads(threads);
+            }
+            return thread;
+        }
+
+        function getPrimaryAdminEmail() {
+            return 'createwithus@simbajourney.com';
+        }
+
+        function getVisibleThreads() {
+            const threads = getPrivateMessageThreads();
+            if (currentUserRole === 'admin') {
+                return threads.slice().sort((left, right) => new Date(right.updatedAt || right.createdAt) - new Date(left.updatedAt || left.createdAt));
+            }
+            return threads
+                .filter((thread) => normalizeEmail(thread.userEmail) === normalizeEmail(currentUserEmail))
+                .sort((left, right) => new Date(right.updatedAt || right.createdAt) - new Date(left.updatedAt || left.createdAt));
+        }
+
+        function getSelectedThread() {
+            if (currentUserRole === 'admin') {
+                if (activeThreadEmail) return ensurePrivateMessageThread(activeThreadEmail);
+                const threads = getVisibleThreads();
+                return threads.length ? threads[0] : null;
+            }
+            return ensurePrivateMessageThread(currentUserEmail);
+        }
+
+        function appendPrivateMessage(thread, senderEmail, senderRole, body) {
+            if (!thread || !body) return null;
+            const nextThread = thread;
+            nextThread.messages = Array.isArray(nextThread.messages) ? nextThread.messages : [];
+            nextThread.messages.push({
+                id: 'msg_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8),
+                senderEmail: normalizeEmail(senderEmail),
+                senderName: getThreadParticipantName(senderEmail),
+                senderRole,
+                senderAvatar: getAvatarForEmail(senderEmail),
+                body,
+                createdAt: new Date().toISOString()
+            });
+            nextThread.updatedAt = new Date().toISOString();
+
+            const threads = getPrivateMessageThreads();
+            const index = threads.findIndex((item) => normalizeEmail(item.userEmail) === normalizeEmail(nextThread.userEmail));
+            if (index === -1) {
+                threads.unshift(nextThread);
+            } else {
+                threads[index] = nextThread;
+            }
+            savePrivateMessageThreads(threads);
+            return nextThread;
+        }
+
+        function notifyThreadRecipient(thread, senderRole, messageBody) {
+            const recipients = new Set();
+            const currentSession = getCurrentSessionUser();
+            const targetEmail = normalizeEmail(thread && thread.userEmail);
+
+            if (senderRole === 'user') {
+                getLocalUsers().forEach((user) => {
+                    if (user && user.role === 'admin') {
+                        recipients.add(normalizeEmail(user.email));
+                    }
+                });
+            } else if (targetEmail) {
+                recipients.add(targetEmail);
+            }
+
+            recipients.forEach((email) => {
+                if (!email || typeof window.addUserNotification !== 'function') return;
+                window.addUserNotification(email, {
+                    type: 'private-message',
+                    title: senderRole === 'admin'
+                        ? t('messages.newAdminReply', 'New admin reply')
+                        : t('messages.newPrivateMessage', 'New private message'),
+                    body: messageBody,
+                    threadId: thread.id,
+                    userEmail: thread.userEmail,
+                    senderRole,
+                    senderEmail: currentSession && currentSession.email ? currentSession.email : ''
+                });
+            });
+        }
+
+        function renderThreadList() {
+            const list = document.getElementById('messages_thread_list');
+            if (!list) return;
+
+            const threads = getVisibleThreads();
+            list.hidden = currentUserRole !== 'admin';
+            list.innerHTML = threads.length ? threads.map((thread) => {
+                const lastMessage = Array.isArray(thread.messages) && thread.messages.length ? thread.messages[thread.messages.length - 1] : null;
+                const activeClass = normalizeEmail(activeThreadEmail) === normalizeEmail(thread.userEmail) ? ' is-active' : '';
+                return `
+                    <button type="button" class="profile-message-list__item${activeClass}" data-message-thread="${escapeHtml(thread.userEmail)}">
+                        <img src="${escapeHtml(thread.userAvatar || '../content/img/profil.png')}" alt="${escapeHtml(thread.userName || thread.userEmail)}" />
+                        <span>
+                            <strong>${escapeHtml(thread.userName || thread.userEmail)}</strong>
+                            <small>${escapeHtml(lastMessage ? lastMessage.body.slice(0, 80) : t('messages.noConversationSelected', 'No conversation selected'))}</small>
+                        </span>
+                    </button>
+                `;
+            }).join('') : `<div class="profile-message-empty">${t('messages.noConversations', 'No conversations yet.')}</div>`;
+        }
+
+        function renderThread() {
+            const thread = getSelectedThread();
+            const header = document.getElementById('messages_thread_header');
+            const body = document.getElementById('messages_thread_body');
+            const input = document.getElementById('messages_input');
+            const sendButton = document.getElementById('messages_send_btn');
+            const status = document.getElementById('messages_status');
+            const hint = document.getElementById('messages_hint');
+            const avatar = document.getElementById('messages_avatar');
+            const name = document.getElementById('messages_name');
+            const bio = document.getElementById('messages_bio');
+            const threadCount = document.getElementById('messages_thread_count');
+            const unreadCount = document.getElementById('messages_unread_count');
+            const roleLabel = document.getElementById('messages_role_label');
+
+            if (!header || !body || !input || !sendButton || !status || !hint) return;
+
+            const visibleThreads = getVisibleThreads();
+            if (threadCount) threadCount.textContent = String(visibleThreads.length);
+            if (unreadCount) unreadCount.textContent = '0';
+            if (roleLabel) roleLabel.textContent = currentUserRole === 'admin' ? t('messages.adminRole', 'Admin') : t('messages.userRole', 'User');
+            if (avatar) avatar.src = getAvatarForEmail(currentUserEmail);
+            if (name) name.textContent = currentUserRole === 'admin' ? t('messages.adminInbox', 'Admin inbox') : (getStoredProfile(currentUserEmail).name || currentUserEmail || t('messages.pageTitle', 'Messages'));
+            if (bio) bio.textContent = currentUserRole === 'admin' ? t('messages.choosePerson', 'Choose a person to see the discussion.') : t('messages.directToAdmins', 'Private conversation with the admin.');
+
+            if (!thread) {
+                header.innerHTML = `<strong>${t('messages.noConversationSelected', 'No conversation selected')}</strong>`;
+                body.innerHTML = `<div class="profile-message-empty">${t('messages.startFromProfile', 'Start a private message from the profile button.')}</div>`;
+                status.textContent = '';
+                hint.textContent = '';
+                input.disabled = true;
+                sendButton.disabled = true;
+                return;
+            }
+
+            input.disabled = false;
+            sendButton.disabled = false;
+            header.innerHTML = `
+                <div class="profile-message-thread__title">
+                    <img src="${escapeHtml(currentUserRole === 'admin' ? getAvatarForEmail(currentUserEmail) : (thread.userAvatar || '../content/img/profil.png'))}" alt="${escapeHtml(currentUserRole === 'admin' ? getThreadParticipantName(currentUserEmail) : (thread.userName || thread.userEmail))}" />
+                    <div>
+                        <strong>${escapeHtml(currentUserRole === 'admin' ? thread.userName || thread.userEmail : getPrimaryAdminEmail())}</strong>
+                        <small>${currentUserRole === 'admin' ? t('messages.adminInbox', 'Admin inbox') : t('messages.privateChat', 'Private chat')}</small>
+                    </div>
+                </div>
+            `;
+            hint.textContent = currentUserRole === 'admin'
+                ? t('messages.choosePerson', 'Choose a person from the inbox and reply here.')
+                : t('messages.directToAdmins', 'Send a private message directly to the admins.');
+            status.textContent = currentUserRole === 'admin' ? t('messages.conversations', '{count} conversations').replace('{count}', visibleThreads.length) : t('messages.singlePrivateThread', '1 private thread');
+            sendButton.textContent = currentUserRole === 'admin' ? t('messages.sendReply', 'Send reply') : t('messages.sendMessage', 'Send message');
+            input.placeholder = currentUserRole === 'admin' ? t('messages.writeReply', 'Write a reply...') : t('messages.writePrivateMessage', 'Write a private message...');
+
+            body.innerHTML = (Array.isArray(thread.messages) && thread.messages.length)
+                ? thread.messages.map((message) => `
+                    <div class="profile-message-bubble${normalizeEmail(message.senderEmail) === normalizeEmail(currentUserEmail) ? ' is-self' : ''}">
+                        <div class="profile-message-bubble__header">
+                            <img src="${escapeHtml(message.senderAvatar || getAvatarForEmail(message.senderEmail))}" alt="${escapeHtml(message.senderName || message.senderEmail || 'User')}" />
+                            <strong>${escapeHtml(message.senderName || message.senderEmail || 'User')}</strong>
+                        </div>
+                        <p>${escapeHtml(message.body || '')}</p>
+                        <small>${formatDate(message.createdAt)}</small>
+                    </div>
+                `).join('')
+                    : `<div class="profile-message-empty">${t('messages.noMessagesYet', 'No messages yet. Send the first one.')}</div>`;
+
+            body.scrollTop = body.scrollHeight;
+        }
+
+        function refreshPage() {
+            const currentSession = getCurrentSessionUser();
+            if (!currentSession || !currentSession.email) {
+                document.getElementById('messages_name').textContent = t('messages.noLoginTitle', 'Not logged in');
+                document.getElementById('messages_bio').textContent = t('messages.noLoginBody', 'Please log in to access private messages.');
+                document.getElementById('messages_thread_body').innerHTML = `<div class="profile-message-empty">${t('messages.noLoginThread', 'You need an account to use private messages.')}</div>`;
+                document.getElementById('messages_form').hidden = true;
+                document.getElementById('messages_thread_list').hidden = true;
+                document.getElementById('messages_status').textContent = '';
+                return;
+            }
+
+            currentUserEmail = normalizeEmail(currentSession.email);
+            currentUserRole = currentSession.role || 'user';
+            const requestedEmail = new URL(window.location.href).searchParams.get('user');
+            activeThreadEmail = currentUserRole === 'admin' ? normalizeEmail(requestedEmail || activeThreadEmail || '') : currentUserEmail;
+            if (currentUserRole === 'admin' && !activeThreadEmail) {
+                const threads = getVisibleThreads();
+                activeThreadEmail = threads.length ? normalizeEmail(threads[0].userEmail) : '';
+            }
+
+            translateMessagesPage();
+            renderThreadList();
+            renderThread();
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshPage();
+        });
+
+        window.addEventListener('simba-language-changed', function() {
+            refreshPage();
+        });
+
+        window.addEventListener('storage', function(event) {
+            if (event && event.key === SIMBA_PRIVATE_MESSAGES_KEY) {
+                refreshPage();
+            }
+        });
+
+        document.getElementById('messages_refresh_btn')?.addEventListener('click', function() {
+            window.location.reload();
+        });
+
+        document.getElementById('messages_thread_list')?.addEventListener('click', function(event) {
+            const target = event.target.closest('[data-message-thread]');
+            if (!target) return;
+            activeThreadEmail = normalizeEmail(target.getAttribute('data-message-thread'));
+            renderThreadList();
+            renderThread();
+        });
+
+        document.getElementById('messages_form')?.addEventListener('submit', function(event) {
+            event.preventDefault();
+            const input = document.getElementById('messages_input');
+            const body = input.value.trim();
+            if (!body) return;
+
+            const threadEmail = currentUserRole === 'admin' ? activeThreadEmail : currentUserEmail;
+            if (!threadEmail) {
+                window.alert(t('messages.selectConversationFirst', 'Select a conversation first.'));
+                return;
+            }
+
+            const thread = ensurePrivateMessageThread(threadEmail);
+            if (!thread) return;
+
+            const senderEmail = currentUserEmail;
+            const senderRole = currentUserRole === 'admin' ? 'admin' : 'user';
+            if (currentUserRole === 'admin') {
+                activeThreadEmail = normalizeEmail(thread.userEmail);
+            }
+
+            appendPrivateMessage(thread, senderEmail, senderRole, body);
+            notifyThreadRecipient(thread, senderRole, body);
+            input.value = '';
+            refreshPage();
+        });
+    </script>
+</body>
+</html>

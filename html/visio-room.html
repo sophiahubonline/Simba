@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test - SIMBA PROJECT</title>
+    <title data-i18n="visios.pageTitle">Visios - SIMBA PROJECT</title>
     <link rel="icon" type="image/png" href="../content/img/simba.png">
     <link rel="stylesheet" href="../css/style.css">
 </head>
 <body>
-    <!-- HEADER -->
     <header class="header">
         <div class="header-container">
             <div class="logo-section">
@@ -17,7 +16,9 @@
             <nav class="navbar">
                 <ul class="nav-list">
                     <li><a href="index.html" class="nav-link">Thematics</a></li>
-                    <li><a href="test.html" class="nav-link active">Test</a></li>
+                    <li><a href="test.html" class="nav-link">Test</a></li>
+                    <li><a href="forum.html" class="nav-link">Forum</a></li>
+                    <li><a href="visios.html" class="nav-link">Visios</a></li>
                     <li><a href="contact.html" class="nav-link">Contact Us</a></li>
                     <li><a href="about-us.html" class="nav-link">About Us</a></li>
                 </ul>
@@ -29,12 +30,12 @@
         </div>
     </header>
 
-    <!-- PAGE CONTENT -->
-    <main class="page-container test-page-container">
-        <div id="quizApp"></div>
+    <main class="visio-room-page">
+        <div id="visioRoomApp">
+            <div class="visio-room__notice">Loading...</div>
+        </div>
     </main>
 
-    <!-- FOOTER -->
     <footer class="footer">
         <div class="footer-container">
             <div class="footer-content">
@@ -55,7 +56,6 @@
         </div>
     </footer>
 
-    <!-- COOKIE BANNER -->
     <div id="cookieBanner" class="cookie-banner" aria-live="polite" hidden>
         <div class="cookie-inner">
             <p>Wir verwenden Cookies, um diese Website zu verbessern. Mehr dazu in unserer <a href="datenschutz.html">Datenschutzerklärung</a>.</p>
@@ -67,7 +67,8 @@
         </div>
     </div>
 
+    <script src="../js/i18n.js"></script>
     <script src="../js/script.js"></script>
-    <script src="../js/quiz.js"></script>
+    <script src="../js/visios.js"></script>
 </body>
 </html>

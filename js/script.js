@@ -251,6 +251,277 @@ function appendProfileScore(scoreEntry) {
     return nextProfile;
 }
 
+const SIMBA_ADMIN_ACCOUNT = {
+    email: 'createwithus@simbajourney.com',
+    password: 'Bruno!Momo_Antonella'
+};
+
+function normalizeEmail(email) {
+    return String(email || '').trim().toLowerCase();
+}
+
+function getLocalUsers() {
+    try { return JSON.parse(localStorage.getItem('simba_local_users') || '[]'); } catch { return []; }
+}
+
+function saveLocalUsers(list) {
+    localStorage.setItem('simba_local_users', JSON.stringify(Array.isArray(list) ? list : []));
+}
+
+function findLocalUserByEmail(email) {
+    const targetEmail = normalizeEmail(email);
+    return getLocalUsers().find((user) => normalizeEmail(user && user.email) === targetEmail);
+}
+
+function getLocalUserRole(email) {
+    const targetEmail = normalizeEmail(email);
+    if (!targetEmail) return 'user';
+    if (targetEmail === normalizeEmail(SIMBA_ADMIN_ACCOUNT.email)) return 'admin';
+    const localUser = findLocalUserByEmail(targetEmail);
+    if (localUser && localUser.role) return localUser.role;
+    try {
+        const profile = JSON.parse(localStorage.getItem('simba_profile_' + targetEmail) || '{}');
+        if (profile && profile.role) return profile.role;
+    } catch (error) {}
+    return 'user';
+}
+
+function isAdminUser(email) {
+    return getLocalUserRole(email) === 'admin';
+}
+
+function isPrimaryAdminAccount(email) {
+    return normalizeEmail(email) === normalizeEmail(SIMBA_ADMIN_ACCOUNT.email);
+}
+
+function canManageAdminAccess(email) {
+    return isPrimaryAdminAccount(email);
+}
+
+function getCurrentSessionUser() {
+    try {
+        const current = JSON.parse(localStorage.getItem('simba_user') || 'null');
+        if (!current || !current.email) return null;
+        return {
+            ...current,
+            role: current.role || getLocalUserRole(current.email)
+        };
+    } catch (error) {
+        return null;
+    }
+}
+
+function setCurrentSessionUser(email, extra = {}) {
+    const nextUser = {
+        email,
+        role: extra.role || getLocalUserRole(email),
+        ...extra
+    };
+    localStorage.setItem('simba_user', JSON.stringify(nextUser));
+    return nextUser;
+}
+
+function ensureAdminAccount() {
+    const users = getLocalUsers();
+    const targetEmail = normalizeEmail(SIMBA_ADMIN_ACCOUNT.email);
+    const existingIndex = users.findIndex((user) => normalizeEmail(user && user.email) === targetEmail);
+    const adminUser = {
+        email: SIMBA_ADMIN_ACCOUNT.email,
+        password: SIMBA_ADMIN_ACCOUNT.password,
+        role: 'admin',
+        profile: {
+            name: 'SIMBA Admin',
+            role: 'admin'
+        }
+    };
+
+    if (existingIndex === -1) {
+        users.unshift(adminUser);
+    } else {
+        users[existingIndex] = {
+            ...users[existingIndex],
+            email: SIMBA_ADMIN_ACCOUNT.email,
+            password: SIMBA_ADMIN_ACCOUNT.password,
+            role: 'admin',
+            profile: {
+                ...(users[existingIndex].profile || {}),
+                name: (users[existingIndex].profile && users[existingIndex].profile.name) || 'SIMBA Admin',
+                role: 'admin'
+            }
+        };
+    }
+
+    saveLocalUsers(users);
+}
+
+function promoteLocalUserToAdmin(email) {
+    const targetEmail = normalizeEmail(email);
+    if (!targetEmail) return { ok: false, reason: 'missing' };
+    if (targetEmail === normalizeEmail(SIMBA_ADMIN_ACCOUNT.email)) return { ok: false, reason: 'primary' };
+
+    const currentSession = getCurrentSessionUser();
+    if (!currentSession || !canManageAdminAccess(currentSession.email)) {
+        return { ok: false, reason: 'forbidden' };
+    }
+
+    const users = getLocalUsers();
+    const userIndex = users.findIndex((user) => normalizeEmail(user && user.email) === targetEmail);
+    if (userIndex === -1) return { ok: false, reason: 'not-found' };
+
+    users[userIndex] = {
+        ...users[userIndex],
+        role: 'admin',
+        profile: {
+            ...(users[userIndex].profile || {}),
+            role: 'admin'
+        }
+    };
+    saveLocalUsers(users);
+
+    if (currentSession && normalizeEmail(currentSession.email) === targetEmail) {
+        setCurrentSessionUser(currentSession.email, { ...currentSession, role: 'admin' });
+    }
+
+    try { if (typeof window.updateAuthUI === 'function') window.updateAuthUI(); } catch (error) {}
+    try { window.dispatchEvent(new CustomEvent('simba-admin-role-changed', { detail: { email: targetEmail, role: 'admin' } })); } catch (error) {}
+    return { ok: true };
+}
+
+function revokeLocalUserAdmin(email) {
+    const targetEmail = normalizeEmail(email);
+    if (!targetEmail) return { ok: false, reason: 'missing' };
+    if (targetEmail === normalizeEmail(SIMBA_ADMIN_ACCOUNT.email)) return { ok: false, reason: 'primary' };
+
+    const currentSession = getCurrentSessionUser();
+    if (!currentSession || !canManageAdminAccess(currentSession.email)) {
+        return { ok: false, reason: 'forbidden' };
+    }
+
+    const users = getLocalUsers();
+    const userIndex = users.findIndex((user) => normalizeEmail(user && user.email) === targetEmail);
+    if (userIndex === -1) return { ok: false, reason: 'not-found' };
+
+    users[userIndex] = {
+        ...users[userIndex],
+        role: 'user',
+        profile: {
+            ...(users[userIndex].profile || {}),
+            role: 'user'
+        }
+    };
+    saveLocalUsers(users);
+
+    if (currentSession && normalizeEmail(currentSession.email) === targetEmail) {
+        setCurrentSessionUser(currentSession.email, { ...currentSession, role: 'user' });
+    }
+
+    try { if (typeof window.updateAuthUI === 'function') window.updateAuthUI(); } catch (error) {}
+    try { window.dispatchEvent(new CustomEvent('simba-admin-role-changed', { detail: { email: targetEmail, role: 'user' } })); } catch (error) {}
+    return { ok: true };
+}
+
+const SIMBA_FORUM_THREADS_KEY = 'simba_forum_threads';
+const SIMBA_NOTIFICATION_KEY_PREFIX = 'simba_notifications_';
+
+function getForumThreads() {
+    try {
+        const items = JSON.parse(localStorage.getItem(SIMBA_FORUM_THREADS_KEY) || '[]');
+        return Array.isArray(items) ? items : [];
+    } catch (error) {
+        return [];
+    }
+}
+
+function saveForumThreads(threads) {
+    const nextThreads = Array.isArray(threads) ? threads.slice(0, 100) : [];
+    localStorage.setItem(SIMBA_FORUM_THREADS_KEY, JSON.stringify(nextThreads));
+}
+
+function getUserNotifications(email) {
+    const targetEmail = normalizeEmail(email);
+    if (!targetEmail) return [];
+    try {
+        const items = JSON.parse(localStorage.getItem(SIMBA_NOTIFICATION_KEY_PREFIX + targetEmail) || '[]');
+        return Array.isArray(items) ? items : [];
+    } catch (error) {
+        return [];
+    }
+}
+
+function saveUserNotifications(email, notifications) {
+    const targetEmail = normalizeEmail(email);
+    if (!targetEmail) return;
+    localStorage.setItem(SIMBA_NOTIFICATION_KEY_PREFIX + targetEmail, JSON.stringify(Array.isArray(notifications) ? notifications.slice(0, 50) : []));
+}
+
+function addUserNotification(email, notification) {
+    const targetEmail = normalizeEmail(email);
+    if (!targetEmail) return null;
+
+    const nextNotifications = getUserNotifications(targetEmail);
+    nextNotifications.unshift({
+        id: 'notif_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8),
+        createdAt: new Date().toISOString(),
+        read: false,
+        ...notification
+    });
+    saveUserNotifications(targetEmail, nextNotifications);
+    return nextNotifications[0];
+}
+
+function getForumActivityForEmail(email) {
+    const targetEmail = normalizeEmail(email);
+    if (!targetEmail) {
+        return { activePosts: [], deletedPosts: [] };
+    }
+
+    const threads = getForumThreads();
+    const activePosts = [];
+    const deletedPosts = [];
+
+    threads.forEach((thread) => {
+        if (normalizeEmail(thread && thread.email) === targetEmail) {
+            const post = {
+                type: 'thread',
+                id: thread.id,
+                title: thread.title,
+                body: thread.body,
+                category: thread.category,
+                createdAt: thread.createdAt,
+                deleted: !!thread.deleted,
+                deletionReason: thread.deletionReason || '',
+                deletedAt: thread.deletedAt || '',
+                deletedBy: thread.deletedBy || ''
+            };
+            (thread.deleted ? deletedPosts : activePosts).push(post);
+        }
+
+        (Array.isArray(thread.replies) ? thread.replies : []).forEach((reply) => {
+            if (normalizeEmail(reply && reply.email) !== targetEmail) return;
+            const post = {
+                type: 'reply',
+                id: reply.id,
+                title: thread.title,
+                body: reply.body,
+                category: thread.category,
+                createdAt: reply.createdAt,
+                deleted: !!reply.deleted,
+                deletionReason: reply.deletionReason || '',
+                deletedAt: reply.deletedAt || '',
+                deletedBy: reply.deletedBy || ''
+            };
+            (reply.deleted ? deletedPosts : activePosts).push(post);
+        });
+    });
+
+    activePosts.sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
+    deletedPosts.sort((left, right) => new Date(right.deletedAt || right.createdAt) - new Date(left.deletedAt || left.createdAt));
+
+    return { activePosts, deletedPosts };
+}
+
+ensureAdminAccount();
+
 function bindLogoToHome() {
     const logo = document.querySelector('.logo-section img.logo');
     if (!logo || logo.dataset.homeLinkBound === 'true') return;
@@ -344,6 +615,18 @@ function buildNavbarDropdowns() {
         }
     }
 
+    if (!navList.querySelector('a[href="visios.html"]')) {
+        const visiosItem = document.createElement('li');
+        visiosItem.innerHTML = `<a href="visios.html" class="nav-link">${t('nav.visios', 'Visios')}</a>`;
+
+        const contactItem = navList.querySelector('a[href="contact.html"]')?.closest('li');
+        if (contactItem && contactItem.parentNode === navList) {
+            navList.insertBefore(visiosItem, contactItem);
+        } else {
+            navList.appendChild(visiosItem);
+        }
+    }
+
     navList.querySelectorAll('.nav-menu-item.has-dropdown').forEach((item) => {
         let closeTimer = null;
 
@@ -369,7 +652,8 @@ function buildNavbarDropdowns() {
     });
 
     const currentPage = window.location.pathname.split('/').pop() || 'index.html';
-    const activeNav = navList.querySelector(`a[href="${currentPage}"]`);
+    const activePage = currentPage === 'visio-room.html' ? 'visios.html' : currentPage;
+    const activeNav = Array.from(navList.querySelectorAll(':scope > li > a')).find((link) => link.getAttribute('href') === activePage);
     if (activeNav) {
         activeNav.classList.add('active');
     }
@@ -384,16 +668,14 @@ function updateAuthUI() {
     const authSection = document.querySelector('.auth-section');
     if (!authSection) return;
 
-    const local = (() => {
-        try {
-            return JSON.parse(localStorage.getItem('simba_user') || 'null');
-        } catch (e) {
-            return null;
-        }
-    })();
+    const local = typeof getCurrentSessionUser === 'function'
+        ? getCurrentSessionUser()
+        : (() => { try { return JSON.parse(localStorage.getItem('simba_user') || 'null'); } catch (e) { return null; } })();
 
     if (local && local.email) {
-        authSection.innerHTML = `<span class="user-greeting">${local.email}</span><button class="logout-btn">${simbaT('auth.signout', 'Sign out')}</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
+        const adminBadge = local.role === 'admin' ? `<span class="user-role-badge user-role-badge--admin">Admin</span>` : '';
+        const adminButton = typeof canManageAdminAccess === 'function' && canManageAdminAccess(local.email) ? `<button class="admin-panel-btn" type="button">Admin</button>` : '';
+        authSection.innerHTML = `<span class="user-greeting">${local.email}${adminBadge}</span>${adminButton}<button class="logout-btn">${simbaT('auth.signout', 'Sign out')}</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
     } else {
         authSection.innerHTML = `<button class="sign-up-btn">${simbaT('auth.signup', 'Sign Up')}</button><button class="login-btn">${simbaT('auth.login', 'Login')}</button>`;
     }
@@ -409,6 +691,14 @@ function updateAuthUI() {
         profileBtn.addEventListener('click', (e) => {
             e.preventDefault();
             window.location.href = 'profile.html';
+        });
+    }
+
+    const adminPanelBtn = authSection.querySelector('.admin-panel-btn');
+    if (adminPanelBtn) {
+        adminPanelBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.location.href = 'profile.html#admin';
         });
     }
 
@@ -624,6 +914,15 @@ document.addEventListener('DOMContentLoaded', function() {
                                             <div style="margin-top:0.6rem"><label>${simbaT('modal.displayName', 'Display name')}</label><input id="simba_dispname" value="${profile.name||''}" /></div>
                                             <div style="margin-top:0.6rem"><label>${simbaT('modal.bio', 'Bio')}</label><textarea id="simba_bio">${profile.bio||''}</textarea></div>
                                             <div style="margin-top:0.6rem"><label>${simbaT('modal.uploadAvatar', 'Custom Avatar (upload)')}</label><input id="simba_avatar_file" type="file" accept="image/*" /></div>
+                                            ${current && current.email && current.role === 'admin' ? `
+                                                <div class="simba-admin-panel">
+                                                    <h4>Admin tools</h4>
+                                                    <p>Promote an existing account to admin.</p>
+                                                    <input id="simba_admin_email" type="email" placeholder="user@example.com" />
+                                                    <button id="simba_promote_admin" class="btn" type="button">Make admin</button>
+                                                    <div id="simba_admin_msg" style="margin-top:0.5rem"></div>
+                                                </div>
+                                            ` : ''}
                                             <div style="margin-top:0.6rem"><button id="simba_save_profile" class="btn">${simbaT('modal.saveProfile', 'Save profile')}</button></div>
                                         `;
                                         // mark selected if preset matches
@@ -675,6 +974,27 @@ document.addEventListener('DOMContentLoaded', function() {
                         // notify other parts of the app (profile page) to update
                         try { window.dispatchEvent(new CustomEvent('simba-profile-updated', { detail: newProfile })); } catch(e){}
                     });
+
+                    const promoteBtn = container.querySelector('#simba_promote_admin');
+                    if (promoteBtn) {
+                        promoteBtn.addEventListener('click', () => {
+                            const adminMsg = container.querySelector('#simba_admin_msg');
+                            const targetEmail = (container.querySelector('#simba_admin_email')?.value || '').trim();
+                            if (!targetEmail) {
+                                if (adminMsg) adminMsg.textContent = 'Enter an account email.';
+                                return;
+                            }
+                            const result = typeof promoteLocalUserToAdmin === 'function'
+                                ? promoteLocalUserToAdmin(targetEmail)
+                                : { ok: false, reason: 'unavailable' };
+                            if (!result.ok) {
+                                if (adminMsg) adminMsg.textContent = result.reason === 'not-found' ? 'Account not found.' : 'Unable to promote this account.';
+                                return;
+                            }
+                            if (adminMsg) adminMsg.textContent = 'Admin role granted.';
+                            updateAuthUI();
+                        });
+                    }
                 }
 
                 switchTab(tab,div);
@@ -693,7 +1013,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 const res = await fetchWithTimeout('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw}),credentials:'include', timeout: 5000});
                                 const data = await res.json();
                                 if (!res.ok) { msg.innerText = data.error || simbaT('modal.invalidCredentials', 'Login failed'); return; }
-                                localStorage.setItem('simba_user', JSON.stringify({email}));
+                                setCurrentSessionUser(email, { role: getLocalUserRole(email) });
                                 updateAuthUI();
                                 if (typeof window.flushPendingQuizScores === 'function') window.flushPendingQuizScores();
                                 div.remove();
@@ -705,7 +1025,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     let u = findLocalUserByEmail(email);
                     if (!u) { msg.innerText=simbaT('modal.noSuchUser', 'No such user (server offline)'); return; }
                     if (u.password !== pw) { msg.innerText=simbaT('modal.invalidCredentials', 'Invalid credentials'); return; }
-                    localStorage.setItem('simba_user', JSON.stringify({email}));
+                    setCurrentSessionUser(email, { role: getLocalUserRole(email) });
                     updateAuthUI();
                     if (typeof window.flushPendingQuizScores === 'function') window.flushPendingQuizScores();
                     div.remove();
@@ -723,7 +1043,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 const res = await fetchWithTimeout('/api/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pw}),credentials:'include', timeout: 5000});
                                 const data = await res.json();
                                 if (!res.ok) { msg.innerText = data.error || 'Signup failed'; return; }
-                                localStorage.setItem('simba_user', JSON.stringify({email}));
+                                setCurrentSessionUser(email, { role: getLocalUserRole(email) });
                                 updateAuthUI();
                                 if (typeof window.flushPendingQuizScores === 'function') window.flushPendingQuizScores();
                                 div.remove();
@@ -733,8 +1053,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     // fallback local store
                     if (findLocalUserByEmail(email)){ msg.innerText=simbaT('modal.emailExists', 'Email already exists (local)'); return; }
-                    const users = loadLocalUsers(); users.push({ email, password: pw, profile: {} }); saveLocalUsers(users);
-                    localStorage.setItem('simba_user', JSON.stringify({email}));
+                    const users = loadLocalUsers(); users.push({ email, password: pw, role: 'user', profile: {} }); saveLocalUsers(users);
+                    setCurrentSessionUser(email, { role: 'user' });
                     updateAuthUI();
                     if (typeof window.flushPendingQuizScores === 'function') window.flushPendingQuizScores();
                     div.remove();
@@ -863,6 +1183,24 @@ document.addEventListener('DOMContentLoaded', function() {
             window.setStoredProfile = setStoredProfile;
             window.mergeStoredProfile = mergeStoredProfile;
             window.appendProfileScore = appendProfileScore;
+            window.getCurrentSessionUser = getCurrentSessionUser;
+            window.getLocalUserRole = getLocalUserRole;
+            window.getUserRoleByEmail = getLocalUserRole;
+            window.isAdminUser = isAdminUser;
+            window.isPrimaryAdminAccount = isPrimaryAdminAccount;
+            window.canManageAdminAccess = canManageAdminAccess;
+            window.ensureAdminAccount = ensureAdminAccount;
+            window.promoteLocalUserToAdmin = promoteLocalUserToAdmin;
+            window.revokeLocalUserAdmin = revokeLocalUserAdmin;
+            window.getForumThreads = getForumThreads;
+            window.saveForumThreads = saveForumThreads;
+            window.getUserNotifications = getUserNotifications;
+            window.addUserNotification = addUserNotification;
+            window.getForumActivityForEmail = getForumActivityForEmail;
+            window.setCurrentSessionUser = setCurrentSessionUser;
+            window.getLocalUsers = getLocalUsers;
+            window.saveLocalUsers = saveLocalUsers;
+            window.findLocalUserByEmail = findLocalUserByEmail;
             window.flushPendingQuizScores = flushPendingQuizScores;
             window.openProfileEditor = function() {
                 if (typeof window.showAuthModal === 'function') {
@@ -943,3 +1281,623 @@ try {
         }
     });
 } catch (e) {}
+
+// Theme pages: shared video + exercises block.
+function initThemePracticeSections() {
+    const content = document.querySelector('.theme-page-content');
+    if (!content || document.querySelector('.theme-practice-root')) return;
+
+    const pageKey = (window.location.pathname.split('/').pop() || '').replace(/\.html$/i, '');
+    if (!pageKey) return;
+
+    const themePracticeData = {
+        attachment: {
+            name: 'Attachment',
+            exercises: [
+                { type: 'slider', title: 'Closeness Thermometer', prompt: 'How close or distant does the relationship feel right now?', content: { min: 0, max: 10, labels: ['distant', 'balanced', 'close'] } },
+                { type: 'scenario_multiple_choice', title: 'Need vs. Fear', prompt: 'Pick the response that fits the moment without overexplaining.', content: { scenario: 'A friend is slow to reply and you start assuming the worst.', choices: ['Wait and check the facts later', 'Send several follow-up messages', 'Assume they no longer care'] } },
+                { type: 'journal/reflection', title: 'What I Need', prompt: 'Name one small, clear request you could make.', content: { prompts: ['What helps me feel safe?', 'What do I wish others knew?', 'What can I ask for directly?'] } }
+            ]
+        },
+        'family-conflict': {
+            name: 'Family Conflict',
+            exercises: [
+                { type: 'scenario_multiple_choice', title: 'De-escalate the Moment', prompt: 'Choose the option that keeps the conversation grounded.', content: { scenario: 'A family discussion starts to get loud.', choices: ['Pause and suggest a break', 'Match the tone to be heard', 'Bring up every past issue'] } },
+                { type: 'checklist/tracker', title: 'Repair Steps', prompt: 'Track one action that supports a calmer next conversation.', content: { items: ['Take a break', 'Write the main point', 'Use one I statement', 'Pick a better time'] } },
+                { type: 'timer/countdown', title: 'Reset Break', prompt: 'Use a short pause before rejoining the conversation.', content: { durationSec: 90, label: 'Pause and breathe, then return' } }
+            ]
+        },
+        'unfairness-relationships': {
+            name: 'Unfairness in Relationships',
+            exercises: [
+                { type: 'journal/reflection', title: 'Fairness Check', prompt: 'Notice what feels uneven without deciding everything at once.', content: { prompts: ['What feels unequal?', 'What do I need more of?', 'What can I ask for plainly?'] } },
+                { type: 'scenario_multiple_choice', title: 'Boundary or Resentment', prompt: 'Pick the response that protects your energy.', content: { scenario: 'You keep giving more than you get back.', choices: ['Name the pattern once clearly', 'Keep doing extra to avoid conflict', 'Withdraw without saying anything'] } },
+                { type: 'slider', title: 'Balance Meter', prompt: 'How balanced does this relationship feel today?', content: { min: 0, max: 10, labels: ['uneven', 'mixed', 'balanced'] } }
+            ]
+        },
+        'social-anxiety': {
+            name: 'Social Anxiety',
+            exercises: [
+                { type: 'scenario_multiple_choice', title: 'In-the-Moment Choice', prompt: 'Choose a low-pressure response for a social situation.', content: { scenario: 'You arrive somewhere and worry everyone is judging you.', choices: ['Use one simple greeting', 'Disappear immediately', 'Perform perfectly'] } },
+                { type: 'flip cards', title: 'Reality Check Cards', prompt: 'Flip each card to compare fear with a more grounded thought.', content: { cards: [{ front: 'They noticed my nerves', back: 'Most people are focused on themselves' }, { front: 'I need the perfect line', back: 'A short greeting is enough' }, { front: 'Awkward means failure', back: 'Awkward moments pass' }] } },
+                { type: 'journal/reflection', title: 'After the Event', prompt: 'Capture one thing that went okay.', content: { prompts: ['What did I handle?', 'What felt harder than expected?', 'What would I repeat next time?'] } }
+            ]
+        },
+        fomo: {
+            name: 'FOMO',
+            exercises: [
+                { type: 'slider', title: 'Pull Toward the Feed', prompt: 'How strong is the urge to check what others are doing?', content: { min: 0, max: 10, labels: ['low', 'medium', 'high'] } },
+                { type: 'random prompt', title: 'Choose Your Focus', prompt: 'Get one alternative to scrolling.', content: { prompts: ['Message one person directly', 'Step outside for five minutes', 'Save one idea for later', 'Do one offline task'] } },
+                { type: 'checklist/tracker', title: 'Offline Wins', prompt: 'Track small actions that make the moment feel fuller.', content: { items: ['Mute one app', 'Set a check-in time', 'Do one local plan', 'Notice one comparison trigger'] } }
+            ]
+        },
+        ocd: {
+            name: 'OCD',
+            exercises: [
+                { type: 'scenario_multiple_choice', title: 'Uncertainty Practice', prompt: 'Pick the response that avoids feeding the loop.', content: { scenario: 'You want to re-check something again to feel sure.', choices: ['Delay the check and move on', 'Check until it feels perfect', 'Ask for repeated reassurance'] } },
+                { type: 'timer/countdown', title: 'Delay Window', prompt: 'Wait a short time before acting on the urge.', content: { durationSec: 120, label: 'Pause before the next check' } },
+                { type: 'checklist/tracker', title: 'Loop Interruptors', prompt: 'Mark the supports you can use when the urge spikes.', content: { items: ['Name the urge', 'Postpone once', 'Shift attention', 'Return to the task'] } }
+            ]
+        },
+        ptsd: {
+            name: 'PTSD',
+            exercises: [
+                { type: 'slider', title: 'Current Safety', prompt: 'How safe does the present moment feel right now?', content: { min: 0, max: 10, labels: ['unsafe', 'steady', 'safe'] } },
+                { type: 'journal/reflection', title: 'Now vs. Then', prompt: 'Separate the present moment from the past in a gentle way.', content: { prompts: ['What is different now?', 'What helps me orient?', 'What is one grounding fact?'] } },
+                { type: 'random prompt', title: 'Grounding Cue', prompt: 'Pick one neutral anchor for the next minute.', content: { prompts: ['Name 3 colors you see', 'Feel your feet on the floor', 'Hold a cold drink', 'Look for a straight line'] } }
+            ]
+        },
+        burnout: {
+            name: 'Burnout',
+            exercises: [
+                { type: 'slider', title: 'Energy Check', prompt: 'How much usable energy do you have right now?', content: { min: 0, max: 10, labels: ['empty', 'some', 'steady'] } },
+                { type: 'checklist/tracker', title: 'Minimum Viable Day', prompt: 'Choose the smallest steps that still count.', content: { items: ['One priority', 'One break', 'One basic meal', 'One shutdown time'] } },
+                { type: 'timer/countdown', title: 'Micro-Recovery', prompt: 'Take a short reset without trying to solve everything.', content: { durationSec: 180, label: 'Rest, stretch, or step away' } }
+            ]
+        },
+        dissociation: {
+            name: 'Dissociation',
+            exercises: [
+                { type: 'scenario_multiple_choice', title: 'Orient First', prompt: 'Choose the grounding step that brings attention back to the room.', content: { scenario: 'You feel spaced out and less connected to the moment.', choices: ['Name where you are and the date', 'Push harder to think clearly', 'Ignore it and keep rushing'] } },
+                { type: 'flip cards', title: 'Orientation Cards', prompt: 'Flip to match a cue with a grounding action.', content: { cards: [{ front: 'Feel floaty', back: 'Press feet into the floor' }, { front: 'Hard to focus', back: 'Say 5 things you can see' }, { front: 'Numb or distant', back: 'Hold something textured' }] } },
+                { type: 'random prompt', title: '5-4-3-2-1 Start', prompt: 'Pick one sense to begin grounding.', content: { prompts: ['Find 5 things you see', 'Notice 4 things you feel', 'Name 3 sounds', 'Take 2 slow breaths'] } }
+            ]
+        },
+        'binge-eating-disorder': {
+            name: 'Binge Eating Disorder',
+            exercises: [
+                { type: 'journal/reflection', title: 'Trigger Snapshot', prompt: 'Notice what was happening before the urge showed up.', content: { prompts: ['What happened before the urge?', 'What feeling was present?', 'What support could help next time?'] } },
+                { type: 'checklist/tracker', title: 'Gentle Regulation', prompt: 'Track non-food supports you can try first.', content: { items: ['Drink water', 'Pause and name the urge', 'Leave the trigger space', 'Reach out for support'] } },
+                { type: 'scenario_multiple_choice', title: 'Next-Small-Step', prompt: 'Choose the response that lowers shame.', content: { scenario: 'You feel like you already messed up and want to keep going.', choices: ['Reset with the next small choice', 'Skip the rest of the day', 'Judge yourself until it passes'] } }
+            ]
+        },
+        insomnia: {
+            name: 'Insomnia',
+            exercises: [
+                { type: 'slider', title: 'Sleep Pressure', prompt: 'How awake do you feel right now?', content: { min: 0, max: 10, labels: ['drowsy', 'restless', 'wide awake'] } },
+                { type: 'checklist/tracker', title: 'Wind-Down List', prompt: 'Mark the things that make nights calmer.', content: { items: ['Dim lights', 'Put phone away', 'Short stretch', 'Quiet reading', 'Consistent wake time'] } },
+                { type: 'random prompt', title: "If Sleep Won't Come", prompt: 'Pick one calm activity for the next 10 minutes.', content: { prompts: ['Sit somewhere dim', 'Listen to soft audio', 'Do a boring task', 'Write tomorrow\'s first step'] } }
+            ]
+        },
+        resilience: {
+            name: 'Resilience',
+            exercises: [
+                { type: 'flip cards', title: 'Strength in Action', prompt: 'Flip to match a challenge with a coping move.', content: { cards: [{ front: 'Things change fast', back: 'Focus on one controllable step' }, { front: 'Energy dips', back: 'Use a smaller goal' }, { front: 'Setback happens', back: 'Name what still worked' }] } },
+                { type: 'journal/reflection', title: 'What Carried Me', prompt: 'Notice evidence that you have gotten through hard moments before.', content: { prompts: ['What helped before?', 'Who or what supports me?', 'What does persistence look like today?'] } },
+                { type: 'checklist/tracker', title: 'Build-Back Behaviors', prompt: 'Track one small action that rebuilds momentum.', content: { items: ['Start small', 'Ask for help', 'Take a break', 'Finish one task'] } }
+            ]
+        },
+        'imposter-syndrome': {
+            name: 'Imposter Syndrome',
+            exercises: [
+                { type: 'scenario_multiple_choice', title: "Credit Where It's Due", prompt: 'Choose the response that keeps achievements grounded.', content: { scenario: 'Someone praises your work and you feel like you fooled them.', choices: ['Accept the praise and move on', 'Reject it immediately', 'List every possible flaw'] } },
+                { type: 'slider', title: 'Confidence vs. Doubt', prompt: 'Where are you on the confidence spectrum right now?', content: { min: 0, max: 10, labels: ['doubt', 'mixed', 'confident'] } },
+                { type: 'journal/reflection', title: 'Proof File', prompt: 'Write one factual reason you belong in the room.', content: { prompts: ['What did I learn?', 'What did I finish?', 'What evidence would I show a friend?'] } }
+            ]
+        },
+        procrastination: {
+            name: 'Procrastination',
+            exercises: [
+                { type: 'timer/countdown', title: 'Start Timer', prompt: 'Begin with a very short work burst.', content: { durationSec: 300, label: 'Work for 5 minutes only' } },
+                { type: 'scenario_multiple_choice', title: 'Make It Smaller', prompt: 'Pick the response that reduces task friction.', content: { scenario: 'A task feels too big to start.', choices: ['Define the next tiny step', 'Wait for motivation to appear', 'Open ten tabs first'] } },
+                { type: 'checklist/tracker', title: 'Task Unfreeze', prompt: 'Track the steps that make starting easier.', content: { items: ['Open file', 'Set timer', 'Remove one distraction', 'Do one tiny action'] } }
+            ]
+        },
+        helplessness: {
+            name: 'Helplessness',
+            exercises: [
+                { type: 'slider', title: 'Control Range', prompt: 'How much influence do you have over this situation?', content: { min: 0, max: 10, labels: ['none', 'some', 'a lot'] } },
+                { type: 'journal/reflection', title: 'One Small Influence', prompt: 'Identify one part you can still affect.', content: { prompts: ['What is outside my control?', 'What is one action I can take?', 'What support could I request?'] } },
+                { type: 'random prompt', title: 'Next Possible Step', prompt: 'Choose one action that is realistic today.', content: { prompts: ['Send one message', 'Gather one resource', 'Pause and rest', 'Ask one question'] } }
+            ]
+        },
+        'feedback-circuit': {
+            name: 'The Feedback Circuit',
+            exercises: [
+                { type: 'scenario_multiple_choice', title: 'Break the Loop', prompt: 'Choose the response that reduces overchecking feedback.', content: { scenario: 'You keep rereading a message to see if it sounded okay.', choices: ['Review once, then stop', 'Keep tweaking the tone', 'Ask for repeated reassurance'] } },
+                { type: 'checklist/tracker', title: 'Signal vs. Noise', prompt: 'Mark the habits that help you respond once and step back.', content: { items: ['Draft before sending', 'Set one review pass', 'Turn off alerts', 'Wait before checking'] } },
+                { type: 'timer/countdown', title: 'One-Pass Timer', prompt: 'Use a short limit for review so the loop does not grow.', content: { durationSec: 90, label: 'Review once, then send or move on' } }
+            ]
+        },
+        adhd: {
+            name: 'ADHD',
+            exercises: [
+                { type: 'checklist/tracker', title: 'Focus Supports', prompt: 'Choose the supports that make attention easier.', content: { items: ['Single task', 'Visible reminder', 'Short timer', 'Body reset', 'Reduce clutter'] } },
+                { type: 'scenario_multiple_choice', title: 'Attention Shift', prompt: 'Pick the next move when your mind jumps away.', content: { scenario: 'You start a task, then notice five other things to do.', choices: ['Park the extras and return to one task', 'Chase every new idea immediately', 'Quit because focus slipped'] } },
+                { type: 'timer/countdown', title: 'Focus Sprint', prompt: 'Work in a short, bounded burst.', content: { durationSec: 600, label: '10-minute sprint' } }
+            ]
+        },
+        dreams: {
+            name: 'Dreams',
+            exercises: [
+                { type: 'journal/reflection', title: 'Dream Snapshot', prompt: 'Capture the dream before it fades.', content: { prompts: ['What stood out?', 'What emotion was present?', 'What image or symbol stayed with me?'] } },
+                { type: 'flip cards', title: 'Dream Themes', prompt: 'Flip cards to explore possible meanings without forcing certainty.', content: { cards: [{ front: 'Falling', back: 'Loss of control or stress' }, { front: 'Being chased', back: 'Avoidance or pressure' }, { front: 'Lost place', back: 'Transition or uncertainty' }] } },
+                { type: 'random prompt', title: 'Dream Detail', prompt: 'Pull one detail to reflect on.', content: { prompts: ['What color was most vivid?', 'Who was there?', 'What action repeated?', 'What felt unfamiliar?'] } }
+            ]
+        },
+        pms: {
+            name: 'PMS',
+            exercises: [
+                { type: 'slider', title: 'Symptom Intensity', prompt: 'How strong are the symptoms today?', content: { min: 0, max: 10, labels: ['mild', 'moderate', 'strong'] } },
+                { type: 'checklist/tracker', title: 'Cycle Support', prompt: 'Track the supports that help you ride out the week.', content: { items: ['Sleep more', 'Lower demands', 'Hydrate', 'Track triggers', 'Ask for flexibility'] } },
+                { type: 'journal/reflection', title: 'Needs Right Now', prompt: 'Name one need you can meet more kindly.', content: { prompts: ['What is harder today?', 'What helps a little?', 'What can I let be simpler?'] } }
+            ]
+        },
+        'mental-load': {
+            name: 'Mental Load',
+            exercises: [
+                { type: 'checklist/tracker', title: 'Invisible Tasks', prompt: 'List the behind-the-scenes work you are carrying.', content: { items: ['Remember appointments', 'Plan meals', 'Follow up', 'Track supplies', 'Coordinate schedules'] } },
+                { type: 'scenario_multiple_choice', title: 'Share the Load', prompt: 'Pick the response that makes responsibilities visible.', content: { scenario: 'You notice you are the only one tracking everything.', choices: ['Spell out the task list', 'Keep absorbing it silently', 'Wait until you burn out'] } },
+                { type: 'journal/reflection', title: 'What Needs a System', prompt: 'Identify one recurring task that could be simplified.', content: { prompts: ['What do I keep remembering?', 'What could be shared?', 'What could be automated or scheduled?'] } }
+            ]
+        }
+    };
+
+    const data = themePracticeData[pageKey];
+    if (!data) return;
+
+    const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[char]));
+
+    const getAnchor = () => (pageKey === 'attachment' ? document.querySelector('.video-section') || content : content);
+    const anchor = getAnchor();
+    if (!anchor) return;
+
+    const videoTitle = pageKey === 'attachment' ? '3 minutes to understand your attachment style' : `3 minutes to explore ${data.name}`;
+    const videoDesc = pageKey === 'attachment'
+        ? 'A short explainer to help you recognize the patterns behind your reactions in close relationships, before you move into the exercises below.'
+        : `A short explainer that opens the topic before you try the exercises below.`;
+    const intro = `Three interactive exercises to explore ${data.name.toLowerCase()} from a different angle.`;
+    const completionCopy = `You completed the three exercises on ${data.name}. Come back anytime to try them again.`;
+
+    const typeLabels = {
+        slider: 'Check in',
+        scenario_multiple_choice: 'Choose a move',
+        'checklist/tracker': 'Build a habit',
+        'timer/countdown': 'Try a pause',
+        'flip cards': 'Reframe',
+        'journal/reflection': 'Write it down',
+        'random prompt': 'Spin a cue'
+    };
+
+    const typeSummaries = {
+        slider: 'Move the scale to see where you are.',
+        scenario_multiple_choice: 'Pick the response that protects your energy.',
+        'checklist/tracker': 'Use the checklist to make the next step concrete.',
+        'timer/countdown': 'Let the timer carry the pause for you.',
+        'flip cards': 'Flip each card to interrupt the old story.',
+        'journal/reflection': 'Capture the useful part before it disappears.',
+        'random prompt': 'Pull one prompt and use it right away.'
+    };
+
+    const section = document.createElement('div');
+    section.className = 'theme-practice-root';
+    section.innerHTML = `
+        ${pageKey === 'attachment' ? '' : `
+        <section class="theme-practice-video">
+            <div class="theme-practice-card">
+                <p class="theme-practice-kicker">Watch</p>
+                <h2>${escapeHtml(videoTitle)}</h2>
+                <p>${escapeHtml(videoDesc)}</p>
+                <div class="theme-practice-video-frame">
+                    <video controls preload="metadata">
+                        <source src="../content/video/introduction_video.mp4" type="video/mp4">
+                    </video>
+                </div>
+            </div>
+        </section>`}
+        <section class="theme-practice-exercises">
+            <div class="theme-practice-wrap">
+                <div class="theme-practice-heading">
+                    <div class="theme-practice-heading-copy">
+                        <p class="theme-practice-kicker">Practice</p>
+                        <h2>Try it for yourself</h2>
+                        <p>${escapeHtml(intro)}</p>
+                    </div>
+                    <div class="theme-practice-progress">
+                        <div class="theme-practice-progress-top">
+                            <span>Your progress</span>
+                            <span><span class="theme-practice-progress-count">0</span>/3 completed</span>
+                        </div>
+                        <div class="theme-practice-progress-track">
+                            <div class="theme-practice-progress-fill"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="theme-practice-grid">
+                    ${data.exercises.map((exercise, index) => renderPracticeExercise(exercise, index + 1)).join('')}
+                </div>
+                <div class="theme-practice-completion">
+                    <h3>Nice work</h3>
+                    <p>${escapeHtml(completionCopy)}</p>
+                </div>
+            </div>
+        </section>
+    `;
+
+    anchor.insertAdjacentElement('afterend', section);
+
+    const completed = [false, false, false];
+    const progressCount = section.querySelector('.theme-practice-progress-count');
+    const progressFill = section.querySelector('.theme-practice-progress-fill');
+    const completion = section.querySelector('.theme-practice-completion');
+
+    function updateProgress() {
+        const total = completed.filter(Boolean).length;
+        if (progressCount) progressCount.textContent = String(total);
+        if (progressFill) progressFill.style.width = `${(total / 3) * 100}%`;
+        if (completion) completion.classList.toggle('is-visible', total === 3);
+    }
+
+    function markDone(index) {
+        if (completed[index]) return;
+        completed[index] = true;
+        const card = section.querySelector(`[data-exercise-index="${index}"]`);
+        if (card) card.classList.add('is-complete');
+        updateProgress();
+    }
+
+    function renderPracticeExercise(exercise, index) {
+        const title = escapeHtml(exercise.title);
+        const prompt = escapeHtml(exercise.prompt);
+        const typeKey = exercise.type;
+        const typeLabel = escapeHtml(typeLabels[typeKey] || 'Exercise');
+        const typeSummary = escapeHtml(typeSummaries[typeKey] || 'A small interactive step.');
+
+        if (exercise.type === 'slider') {
+            const labels = exercise.content.labels || [];
+            return `
+                <article class="theme-practice-exercise" data-exercise-index="${index - 1}" data-exercise-type="slider">
+                    <div class="theme-practice-exercise-top">
+                        <div class="theme-practice-icon">${index}</div>
+                        <div>
+                            <h3>${title}</h3>
+                            <span class="theme-practice-chip">${typeLabel}</span>
+                        </div>
+                        <div class="theme-practice-check">✓</div>
+                    </div>
+                    <p>${prompt}</p>
+                    <p class="theme-practice-live-copy" data-slider-copy>${escapeHtml(typeSummary)}</p>
+                    <div class="theme-practice-slider">
+                        <input type="range" min="${exercise.content.min}" max="${exercise.content.max}" value="${Math.round((exercise.content.min + exercise.content.max) / 2)}" data-slider>
+                        <div class="theme-practice-slider-meta">
+                            <span>${escapeHtml(labels[0] || String(exercise.content.min))}</span>
+                            <span data-slider-value>5</span>
+                            <span>${escapeHtml(labels[2] || String(exercise.content.max))}</span>
+                        </div>
+                    </div>
+                    <div class="theme-practice-actions"><button class="theme-practice-btn" type="button" data-action-done>Mark as done</button></div>
+                </article>
+            `;
+        }
+
+        if (exercise.type === 'scenario_multiple_choice') {
+            return `
+                <article class="theme-practice-exercise" data-exercise-index="${index - 1}" data-exercise-type="scenario">
+                    <div class="theme-practice-exercise-top">
+                        <div class="theme-practice-icon">${index}</div>
+                        <div>
+                            <h3>${title}</h3>
+                            <span class="theme-practice-chip">${typeLabel}</span>
+                        </div>
+                        <div class="theme-practice-check">✓</div>
+                    </div>
+                    <p>${prompt}</p>
+                    <p class="theme-practice-live-copy">${escapeHtml(typeSummary)}</p>
+                    <div class="theme-practice-scenario">${escapeHtml(exercise.content.scenario)}</div>
+                    <div class="theme-practice-choice-grid">
+                        ${exercise.content.choices.map((choice, choiceIndex) => `<button type="button" class="theme-practice-choice" data-choice="${choiceIndex}">${escapeHtml(choice)}</button>`).join('')}
+                    </div>
+                    <p class="theme-practice-feedback" data-feedback>Choose one option to see a quick read.</p>
+                </article>
+            `;
+        }
+
+        if (exercise.type === 'checklist/tracker') {
+            return `
+                <article class="theme-practice-exercise" data-exercise-index="${index - 1}" data-exercise-type="checklist">
+                    <div class="theme-practice-exercise-top">
+                        <div class="theme-practice-icon">${index}</div>
+                        <div>
+                            <h3>${title}</h3>
+                            <span class="theme-practice-chip">${typeLabel}</span>
+                        </div>
+                        <div class="theme-practice-check">✓</div>
+                    </div>
+                    <p>${prompt}</p>
+                    <p class="theme-practice-live-copy">${escapeHtml(typeSummary)}</p>
+                    <div class="theme-practice-checklist">
+                        ${exercise.content.items.map((item) => `<label class="theme-practice-checklist-item"><input type="checkbox" data-check-item><span>${escapeHtml(item)}</span></label>`).join('')}
+                    </div>
+                    <p class="theme-practice-feedback" data-check-feedback>0 of ${exercise.content.items.length} checked.</p>
+                    <div class="theme-practice-actions"><button class="theme-practice-btn" type="button" data-action-done>Lock it in</button></div>
+                </article>
+            `;
+        }
+
+        if (exercise.type === 'timer/countdown') {
+            return `
+                <article class="theme-practice-exercise" data-exercise-index="${index - 1}" data-exercise-type="timer">
+                    <div class="theme-practice-exercise-top">
+                        <div class="theme-practice-icon">${index}</div>
+                        <div>
+                            <h3>${title}</h3>
+                            <span class="theme-practice-chip">${typeLabel}</span>
+                        </div>
+                        <div class="theme-practice-check">✓</div>
+                    </div>
+                    <p>${prompt}</p>
+                    <p class="theme-practice-live-copy">${escapeHtml(typeSummary)}</p>
+                    <div class="theme-practice-timer">
+                        <div class="theme-practice-timer-ring" data-timer-display>${Math.floor(exercise.content.durationSec / 60)}:${String(exercise.content.durationSec % 60).padStart(2, '0')}</div>
+                        <p data-timer-status>${escapeHtml(exercise.content.label)}</p>
+                        <div class="theme-practice-mini-track"><span data-timer-progress></span></div>
+                        <div class="theme-practice-actions">
+                            <button class="theme-practice-btn" type="button" data-timer-start>Start pause</button>
+                            <button class="theme-practice-btn secondary" type="button" data-action-done>Save this pause</button>
+                        </div>
+                    </div>
+                </article>
+            `;
+        }
+
+        if (exercise.type === 'flip cards') {
+            return `
+                <article class="theme-practice-exercise" data-exercise-index="${index - 1}" data-exercise-type="flip">
+                    <div class="theme-practice-exercise-top">
+                        <div class="theme-practice-icon">${index}</div>
+                        <div>
+                            <h3>${title}</h3>
+                            <span class="theme-practice-chip">${typeLabel}</span>
+                        </div>
+                        <div class="theme-practice-check">✓</div>
+                    </div>
+                    <p>${prompt}</p>
+                    <p class="theme-practice-live-copy">${escapeHtml(typeSummary)}</p>
+                    <div class="theme-practice-flip-grid">
+                        ${exercise.content.cards.map((card) => `<button class="theme-practice-flip" type="button" data-front="${escapeHtml(card.front)}" data-back="${escapeHtml(card.back)}">${escapeHtml(card.front)}</button>`).join('')}
+                    </div>
+                    <p class="theme-practice-hint">Flip all cards to complete this exercise.</p>
+                </article>
+            `;
+        }
+
+        if (exercise.type === 'journal/reflection') {
+            return `
+                <article class="theme-practice-exercise theme-practice-journal" data-exercise-index="${index - 1}" data-exercise-type="journal">
+                    <div class="theme-practice-exercise-top">
+                        <div class="theme-practice-icon">${index}</div>
+                        <div>
+                            <h3>${title}</h3>
+                            <span class="theme-practice-chip">${typeLabel}</span>
+                        </div>
+                        <div class="theme-practice-check">✓</div>
+                    </div>
+                    <p>${prompt}</p>
+                    <p class="theme-practice-live-copy">${escapeHtml(typeSummary)}</p>
+                    <div class="theme-practice-prompt-pills">
+                        ${exercise.content.prompts.map((item) => `<button type="button" class="theme-practice-pill" data-prompt>${escapeHtml(item)}</button>`).join('')}
+                    </div>
+                    <textarea placeholder="Write a short reflection..."></textarea>
+                    <div class="theme-practice-journal-footer">
+                        <span class="theme-practice-note">Stays on this page only.</span>
+                        <button class="theme-practice-btn" type="button" data-action-done>Save reflection</button>
+                    </div>
+                </article>
+            `;
+        }
+
+        if (exercise.type === 'random prompt') {
+            return `
+                <article class="theme-practice-exercise" data-exercise-index="${index - 1}" data-exercise-type="random">
+                    <div class="theme-practice-exercise-top">
+                        <div class="theme-practice-icon">${index}</div>
+                        <div>
+                            <h3>${title}</h3>
+                            <span class="theme-practice-chip">${typeLabel}</span>
+                        </div>
+                        <div class="theme-practice-check">✓</div>
+                    </div>
+                    <p>${prompt}</p>
+                    <p class="theme-practice-live-copy">${escapeHtml(typeSummary)}</p>
+                    <div class="theme-practice-random">
+                        <button class="theme-practice-btn" type="button" data-random-pick>Roll a cue</button>
+                        <p class="theme-practice-random-result" data-random-result>${escapeHtml(exercise.content.prompts[0] || '')}</p>
+                    </div>
+                    <div class="theme-practice-actions"><button class="theme-practice-btn secondary" type="button" data-action-done>Use this cue</button></div>
+                </article>
+            `;
+        }
+
+        return '';
+    }
+
+    const sliderCards = Array.from(section.querySelectorAll('[data-exercise-type="slider"]'));
+    sliderCards.forEach((card, index) => {
+        const slider = card.querySelector('[data-slider]');
+        const value = card.querySelector('[data-slider-value]');
+        const copy = card.querySelector('[data-slider-copy]');
+        const done = card.querySelector('[data-action-done]');
+        if (slider && value) {
+            value.textContent = slider.value;
+            const updateSlider = () => {
+                const nextValue = Number(slider.value);
+                value.textContent = slider.value;
+                if (copy) {
+                    const low = exerciseBandLabel(nextValue, slider.min, slider.max, 'low');
+                    copy.textContent = low;
+                }
+            };
+            slider.addEventListener('input', updateSlider);
+            updateSlider();
+        }
+        if (done) done.addEventListener('click', () => markDone(index));
+    });
+
+    Array.from(section.querySelectorAll('[data-exercise-type="scenario"]')).forEach((card, index) => {
+        const feedback = card.querySelector('[data-feedback]');
+        const choices = Array.from(card.querySelectorAll('[data-choice]'));
+        choices.forEach((choice, choiceIndex) => {
+            choice.addEventListener('click', () => {
+                const messages = [
+                    'Best fit: this keeps the situation small and readable.',
+                    'This usually feeds the loop instead of settling it.',
+                    'This makes the next step harder to see clearly.'
+                ];
+                if (feedback) feedback.textContent = choiceIndex === 0 ? messages[0] : messages[choiceIndex] || messages[2];
+                markDone(index);
+            });
+        });
+    });
+
+    Array.from(section.querySelectorAll('[data-exercise-type="checklist"]')).forEach((card, index) => {
+        const done = card.querySelector('[data-action-done]');
+        const items = Array.from(card.querySelectorAll('[data-check-item]'));
+        const feedback = card.querySelector('[data-check-feedback]');
+        const maybeComplete = () => {
+            const count = items.filter((item) => item.checked).length;
+            if (feedback) {
+                feedback.textContent = `${count} of ${items.length} checked.`;
+            }
+            if (items.every((item) => item.checked)) {
+                if (feedback) feedback.textContent = 'Complete. Keep what matters and leave the rest.';
+                markDone(index);
+            }
+        };
+        items.forEach((item) => item.addEventListener('change', maybeComplete));
+        maybeComplete();
+        if (done) done.addEventListener('click', () => markDone(index));
+    });
+
+    Array.from(section.querySelectorAll('[data-exercise-type="timer"]')).forEach((card, index) => {
+        const display = card.querySelector('[data-timer-display]');
+        const status = card.querySelector('[data-timer-status]');
+        const start = card.querySelector('[data-timer-start]');
+        const done = card.querySelector('[data-action-done]');
+        const progress = card.querySelector('[data-timer-progress]');
+        const duration = data.exercises[index].content.durationSec;
+        let remaining = duration;
+        let timerId = null;
+
+        const renderTime = () => {
+            const minutes = Math.floor(remaining / 60);
+            const seconds = String(remaining % 60).padStart(2, '0');
+            if (display) display.textContent = `${minutes}:${seconds}`;
+            if (progress) progress.style.width = `${((duration - remaining) / duration) * 100}%`;
+        };
+
+        if (start) {
+            start.addEventListener('click', () => {
+                if (timerId) window.clearInterval(timerId);
+                remaining = duration;
+                renderTime();
+                if (status) status.textContent = 'Timer started. Stay with the pause.';
+                timerId = window.setInterval(() => {
+                    remaining -= 1;
+                    if (remaining <= 0) {
+                        window.clearInterval(timerId);
+                        timerId = null;
+                        remaining = 0;
+                        renderTime();
+                        if (status) status.textContent = 'Pause complete. Take the calmer next step.';
+                        markDone(index);
+                        return;
+                    }
+                    renderTime();
+                }, 1000);
+            });
+        }
+        renderTime();
+        if (done) done.addEventListener('click', () => markDone(index));
+    });
+
+    Array.from(section.querySelectorAll('[data-exercise-type="flip"]')).forEach((card, index) => {
+        const buttons = Array.from(card.querySelectorAll('.theme-practice-flip'));
+        buttons.forEach((button) => {
+            button.addEventListener('click', function() {
+                const flipped = button.classList.toggle('is-flipped');
+                button.textContent = flipped ? button.dataset.back : button.dataset.front;
+                if (buttons.every((item) => item.classList.contains('is-flipped'))) {
+                    markDone(index);
+                }
+            });
+        });
+    });
+
+    Array.from(section.querySelectorAll('[data-exercise-type="journal"]')).forEach((card, index) => {
+        const textarea = card.querySelector('textarea');
+        const prompts = Array.from(card.querySelectorAll('[data-prompt]'));
+        const done = card.querySelector('[data-action-done]');
+        prompts.forEach((button) => {
+            button.addEventListener('click', () => {
+                if (textarea) {
+                    textarea.value = textarea.value ? `${textarea.value}\n${button.textContent}` : button.textContent;
+                }
+            });
+        });
+        if (done) {
+            done.addEventListener('click', () => {
+                if (!textarea || textarea.value.trim().length < 3) {
+                    if (textarea) textarea.focus();
+                    return;
+                }
+                markDone(index);
+            });
+        }
+    });
+
+    Array.from(section.querySelectorAll('[data-exercise-type="random"]')).forEach((card, index) => {
+        const button = card.querySelector('[data-random-pick]');
+        const result = card.querySelector('[data-random-result]');
+        const prompts = data.exercises[index].content.prompts || [];
+        const done = card.querySelector('[data-action-done]');
+        if (button && result && prompts.length) {
+            button.addEventListener('click', () => {
+                const next = prompts[Math.floor(Math.random() * prompts.length)];
+                result.textContent = next;
+                button.textContent = 'Roll again';
+            });
+        }
+        if (done) done.addEventListener('click', () => markDone(index));
+    });
+
+    function exerciseBandLabel(value, min, max, fallback) {
+        const low = Number(min);
+        const high = Number(max);
+        const span = Math.max(high - low, 1);
+        const ratio = (Number(value) - low) / span;
+        if (ratio < 0.34) return fallback === 'low' ? 'This sits closer to the lower end right now.' : 'low';
+        if (ratio < 0.67) return fallback === 'low' ? 'This feels somewhere in the middle.' : 'middle';
+        return fallback === 'low' ? 'This is strongly present right now.' : 'high';
+    }
+
+    updateProgress();
+}
+
+document.addEventListener('DOMContentLoaded', initThemePracticeSections);
+if (document.readyState !== 'loading') initThemePracticeSections();
