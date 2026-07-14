@@ -41,9 +41,9 @@
                 <div style="margin-top:1rem" class="profile-section">
                     <div style="font-weight:700;color:var(--color-navy);margin-bottom:6px" data-i18n="profile.quickStats">Quick stats</div>
                     <div class="profile-grid">
-                        <div class="profile-stat"><h4 data-i18n="profile.tests">Tests</h4><div>0</div></div>
-                        <div class="profile-stat"><h4 data-i18n="profile.avgScore">Avg score</h4><div>-</div></div>
-                        <div class="profile-stat"><h4 data-i18n="profile.rank">Rank</h4><div>-</div></div>
+                        <div class="profile-stat"><h4 data-i18n="profile.threadCount">Sujets</h4><div id="profile_stat_threads">0</div></div>
+                        <div class="profile-stat"><h4 data-i18n="profile.testsDone">Tests effectués</h4><div id="profile_stat_tests">0</div></div>
+                        <div class="profile-stat"><h4 data-i18n="profile.unreadMessages">Messages non lus</h4><div id="profile_stat_unread">0</div></div>
                     </div>
                 </div>
             </aside>
@@ -71,17 +71,28 @@
                     <h3 data-i18n="profile.adminTools">Admin tools</h3>
                     <p data-i18n="profile.adminToolsDescription">Promote or revoke admin access for existing accounts.</p>
                     <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-start">
-                        <input id="profile_admin_email" type="email" placeholder="user@example.com" data-i18n-placeholder="profile.adminEmailPlaceholder" style="flex:1 1 260px;padding:0.7rem;border-radius:10px;border:1px solid #d6d0c6" />
+                        <div class="profile-lookup-wrap profile-admin-lookup-wrap">
+                            <input id="profile_admin_email" type="text" autocomplete="off" spellcheck="false" placeholder="user@example.com" data-i18n-placeholder="profile.adminEmailPlaceholder" style="flex:1 1 260px;padding:0.7rem;border-radius:10px;border:1px solid #d6d0c6" />
+                            <div id="profile_admin_lookup_suggestions" class="profile-lookup-suggestions" hidden></div>
+                        </div>
                         <button id="profile_promote_admin_btn" class="btn-primary" type="button" data-i18n="profile.makeAdmin">Make admin</button>
                         <button id="profile_revoke_admin_btn" class="btn-edit" type="button" data-i18n="profile.removeAdmin">Remove admin</button>
                     </div>
                     <p id="profile_admin_message" style="margin-top:0.6rem"></p>
+                    <div id="profile_admins_panel" style="margin-top:1rem">
+                        <h4 style="margin:0 0 0.5rem" data-i18n="profile.adminListTitle">Current admins</h4>
+                        <p id="profile_admins_empty" data-i18n="profile.adminListEmpty">No admins found.</p>
+                        <ul id="profile_admins_list" class="profile-admin-list"></ul>
+                    </div>
                 </div>
                 <div id="admin_lookup_section" class="profile-section" hidden>
                     <h3 data-i18n="profile.viewProfile">View a profile</h3>
                     <p data-i18n="profile.viewProfileDescription">Open another account to inspect its profile and forum activity.</p>
                     <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-start">
-                        <input id="profile_lookup_email" type="email" placeholder="user@example.com" data-i18n-placeholder="profile.profileLookupPlaceholder" style="flex:1 1 260px;padding:0.7rem;border-radius:10px;border:1px solid #d6d0c6" />
+                        <div class="profile-lookup-wrap">
+                            <input id="profile_lookup_email" type="text" autocomplete="off" spellcheck="false" placeholder="user@example.com" data-i18n-placeholder="profile.profileLookupPlaceholder" style="flex:1 1 260px;padding:0.7rem;border-radius:10px;border:1px solid #d6d0c6" />
+                            <div id="profile_lookup_suggestions" class="profile-lookup-suggestions" hidden></div>
+                        </div>
                         <button id="profile_lookup_btn" class="btn-primary" type="button" data-i18n="profile.openProfile">Open profile</button>
                         <button id="profile_back_to_me_btn" class="btn-edit" type="button" data-i18n="profile.backToMyProfile">Back to my profile</button>
                     </div>
@@ -137,6 +148,10 @@
         let scoreHistoryExpanded = false;
         let viewingEmail = '';
         let viewingProfileIsAdminSelected = false;
+        let forumActivityHydrationPromise = null;
+        let profileLookupRequestToken = 0;
+        let profileLookupAutocompleteBound = false;
+        let profileAdminLookupAutocompleteBound = false;
 
         function normalizeEmail(value) {
             return String(value || '').trim().toLowerCase();
@@ -153,6 +168,293 @@
 
         function getScoreHistoryCopy(scores) {
             return Array.isArray(scores) ? scores.slice() : [];
+        }
+
+        async function loadProfileFromServer(email) {
+            try {
+                const url = new URL('/api/profile', window.location.origin);
+                if (email) {
+                    url.searchParams.set('email', email);
+                }
+                const res = await fetch(url.toString(), { credentials: 'include' });
+                if (!res.ok) return null;
+                const data = await res.json();
+                return data.profile || {};
+            } catch (error) {
+                return null;
+            }
+        }
+
+        async function ensureForumActivityCache() {
+            if (forumActivityHydrationPromise) return forumActivityHydrationPromise;
+            forumActivityHydrationPromise = (async () => {
+                try {
+                    const ping = await fetch('/api/ping');
+                    if (!ping.ok) return;
+                    const res = await fetch('/api/forum/threads', { credentials: 'include' });
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    const threads = Array.isArray(data.threads) ? data.threads : [];
+                    localStorage.setItem('simba_forum_threads', JSON.stringify(threads));
+                } catch (error) {}
+            })();
+            return forumActivityHydrationPromise;
+        }
+
+        function getLocalProfileSuggestions(query) {
+            const normalizedQuery = normalizeEmail(query);
+            if (!normalizedQuery) return [];
+
+            const localUsers = typeof window.getLocalUsers === 'function' ? window.getLocalUsers() : [];
+            return localUsers
+                .map((user) => {
+                    const email = normalizeEmail(user && user.email);
+                    const profile = user && user.profile ? user.profile : {};
+                    return {
+                        email,
+                        name: String(profile.name || email || '').trim(),
+                        avatar: profile.avatar || '../content/img/profil.png',
+                        role: profile.role || user.role || 'user'
+                    };
+                })
+                .filter((item, index, array) => item.email && array.findIndex((candidate) => candidate.email === item.email) === index)
+                .filter((item) => item.email.includes(normalizedQuery) || normalizeEmail(item.name).includes(normalizedQuery))
+                .sort((left, right) => {
+                    const leftExact = left.email.startsWith(normalizedQuery) || normalizeEmail(left.name).startsWith(normalizedQuery) ? 0 : 1;
+                    const rightExact = right.email.startsWith(normalizedQuery) || normalizeEmail(right.name).startsWith(normalizedQuery) ? 0 : 1;
+                    if (leftExact !== rightExact) return leftExact - rightExact;
+                    return left.email.localeCompare(right.email);
+                })
+                .slice(0, 5);
+        }
+
+        async function getProfileSuggestions(query) {
+            const normalizedQuery = normalizeEmail(query);
+            if (!normalizedQuery) return [];
+
+            let results = [];
+            try {
+                const url = new URL('/api/profiles/search', window.location.origin);
+                url.searchParams.set('q', normalizedQuery);
+                const res = await fetch(url.toString(), { credentials: 'include' });
+                if (res.ok) {
+                    const data = await res.json();
+                    results = Array.isArray(data.profiles) ? data.profiles : [];
+                }
+            } catch (error) {}
+
+            const merged = [...results];
+            const seen = new Set(merged.map((item) => normalizeEmail(item && item.email)));
+            getLocalProfileSuggestions(normalizedQuery).forEach((item) => {
+                if (!seen.has(item.email)) {
+                    merged.push(item);
+                    seen.add(item.email);
+                }
+            });
+
+            return merged.slice(0, 5);
+        }
+
+        function renderProfileLookupSuggestions(items) {
+            const container = document.getElementById('profile_lookup_suggestions');
+            if (!container) return;
+
+            const suggestions = Array.isArray(items) ? items.slice(0, 5) : [];
+            if (!suggestions.length) {
+                container.innerHTML = '';
+                container.hidden = true;
+                return;
+            }
+
+            container.innerHTML = suggestions.map((item) => `
+                <button type="button" class="profile-lookup-suggestion" data-profile-email="${escapeHtml(item.email)}">
+                    <img src="${escapeHtml(item.avatar || '../content/img/profil.png')}" alt="${escapeHtml(item.name || item.email)}" />
+                    <span>
+                        <strong>${escapeHtml(item.name || item.email)}</strong>
+                        <small>${escapeHtml(item.email)}</small>
+                    </span>
+                </button>
+            `).join('');
+            container.hidden = false;
+
+            container.querySelectorAll('[data-profile-email]').forEach((button) => {
+                button.addEventListener('click', function() {
+                    const targetEmail = String(this.getAttribute('data-profile-email') || '').trim();
+                    const input = document.getElementById('profile_lookup_email');
+                    if (input) input.value = targetEmail;
+                    container.hidden = true;
+                    if (!targetEmail) return;
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('user', targetEmail);
+                    window.location.href = url.toString();
+                });
+            });
+        }
+
+        function getLocalAdminProfiles() {
+            const localUsers = typeof window.getLocalUsers === 'function' ? window.getLocalUsers() : [];
+            return localUsers
+                .map((user) => {
+                    const email = normalizeEmail(user && user.email);
+                    const profile = user && user.profile ? user.profile : {};
+                    const role = profile.role || user.role || 'user';
+                    return {
+                        email,
+                        name: String(profile.name || email || '').trim(),
+                        avatar: profile.avatar || '../content/img/profil.png',
+                        role
+                    };
+                })
+                .filter((item, index, array) => item.email && array.findIndex((candidate) => candidate.email === item.email) === index)
+                .filter((item) => item.role === 'admin')
+                .sort((left, right) => left.email.localeCompare(right.email));
+        }
+
+        function renderAdminProfilesList() {
+            const list = document.getElementById('profile_admins_list');
+            const empty = document.getElementById('profile_admins_empty');
+            if (!list) return;
+
+            const admins = getLocalAdminProfiles();
+            list.innerHTML = '';
+
+            if (!admins.length) {
+                if (empty) empty.hidden = false;
+                return;
+            }
+
+            if (empty) empty.hidden = true;
+            admins.forEach((admin) => {
+                const item = document.createElement('li');
+                item.className = 'profile-admin-item';
+                item.innerHTML = `
+                    <img src="${escapeHtml(admin.avatar || '../content/img/profil.png')}" alt="${escapeHtml(admin.name || admin.email)}" />
+                    <span>
+                        <strong>${escapeHtml(admin.name || admin.email)}</strong>
+                        <small>${escapeHtml(admin.email)}</small>
+                    </span>
+                    <span class="profile-admin-badge">Admin</span>
+                    <button type="button" class="profile-admin-remove" data-admin-remove="${escapeHtml(admin.email)}" title="Remove admin" aria-label="Remove admin">×</button>
+                `;
+                list.appendChild(item);
+            });
+
+            list.querySelectorAll('[data-admin-remove]').forEach((button) => {
+                const targetEmail = String(button.getAttribute('data-admin-remove') || '').trim();
+                if (!targetEmail || normalizeEmail(targetEmail) === normalizeEmail('createwithus@simbajourney.com')) {
+                    button.disabled = true;
+                    return;
+                }
+                button.addEventListener('click', function() {
+                    const result = typeof window.revokeLocalUserAdmin === 'function'
+                        ? window.revokeLocalUserAdmin(targetEmail)
+                        : { ok: false, reason: 'unavailable' };
+                    if (!result.ok) return;
+                    renderAdminProfilesList();
+                });
+            });
+        }
+
+        function renderAdminLookupSuggestions(items) {
+            const container = document.getElementById('profile_admin_lookup_suggestions');
+            if (!container) return;
+
+            const suggestions = Array.isArray(items) ? items.slice(0, 5) : [];
+            if (!suggestions.length) {
+                container.innerHTML = '';
+                container.hidden = true;
+                return;
+            }
+
+            container.innerHTML = suggestions.map((item) => `
+                <button type="button" class="profile-lookup-suggestion" data-admin-profile-email="${escapeHtml(item.email)}">
+                    <img src="${escapeHtml(item.avatar || '../content/img/profil.png')}" alt="${escapeHtml(item.name || item.email)}" />
+                    <span>
+                        <strong>${escapeHtml(item.name || item.email)}</strong>
+                        <small>${escapeHtml(item.email)}</small>
+                    </span>
+                </button>
+            `).join('');
+            container.hidden = false;
+
+            container.querySelectorAll('[data-admin-profile-email]').forEach((button) => {
+                button.addEventListener('click', function() {
+                    const targetEmail = String(this.getAttribute('data-admin-profile-email') || '').trim();
+                    const input = document.getElementById('profile_admin_email');
+                    if (input) input.value = targetEmail;
+                    container.hidden = true;
+                });
+            });
+        }
+
+        function bindAdminLookupAutocomplete() {
+            const lookupInput = document.getElementById('profile_admin_email');
+            const suggestionsBox = document.getElementById('profile_admin_lookup_suggestions');
+            const adminToolsSection = document.getElementById('admin_tools_section');
+            if (!lookupInput || !suggestionsBox || !adminToolsSection || profileAdminLookupAutocompleteBound) return;
+
+            const updateSuggestions = async () => {
+                const query = lookupInput.value.trim();
+                const token = ++profileLookupRequestToken;
+                if (!query) {
+                    renderAdminLookupSuggestions([]);
+                    return;
+                }
+                const suggestions = await getProfileSuggestions(query);
+                if (token !== profileLookupRequestToken) return;
+                renderAdminLookupSuggestions(suggestions);
+            };
+
+            lookupInput.addEventListener('input', updateSuggestions);
+            lookupInput.addEventListener('focus', updateSuggestions);
+            lookupInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    renderAdminLookupSuggestions([]);
+                }
+            });
+
+            document.addEventListener('click', function(event) {
+                if (!adminToolsSection.contains(event.target)) {
+                    renderAdminLookupSuggestions([]);
+                }
+            });
+
+            profileAdminLookupAutocompleteBound = true;
+        }
+
+        function bindProfileLookupAutocomplete() {
+            const lookupInput = document.getElementById('profile_lookup_email');
+            const suggestionsBox = document.getElementById('profile_lookup_suggestions');
+            const adminLookupSection = document.getElementById('admin_lookup_section');
+            if (!lookupInput || !suggestionsBox || !adminLookupSection || profileLookupAutocompleteBound) return;
+
+            const updateSuggestions = async () => {
+                const query = lookupInput.value.trim();
+                const token = ++profileLookupRequestToken;
+                if (!query) {
+                    renderProfileLookupSuggestions([]);
+                    return;
+                }
+                const suggestions = await getProfileSuggestions(query);
+                if (token !== profileLookupRequestToken) return;
+                renderProfileLookupSuggestions(suggestions);
+            };
+
+            lookupInput.addEventListener('input', updateSuggestions);
+            lookupInput.addEventListener('focus', updateSuggestions);
+            lookupInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    renderProfileLookupSuggestions([]);
+                }
+            });
+
+            document.addEventListener('click', function(event) {
+                if (!adminLookupSection.contains(event.target)) {
+                    renderProfileLookupSuggestions([]);
+                }
+            });
+
+            profileLookupAutocompleteBound = true;
         }
 
         function renderScoreHistory(scores) {
@@ -268,10 +570,48 @@
             }
         }
 
+        function countThreadsPosted(email) {
+            const activity = typeof window.getForumActivityForEmail === 'function' ? window.getForumActivityForEmail(email) : { activePosts: [], deletedPosts: [] };
+            const activeThreads = Array.isArray(activity.activePosts) ? activity.activePosts.filter((post) => post && post.type === 'thread').length : 0;
+            const deletedThreads = Array.isArray(activity.deletedPosts) ? activity.deletedPosts.filter((post) => post && post.type === 'thread').length : 0;
+            return activeThreads + deletedThreads;
+        }
+
+        function countUnreadMessages(email) {
+            const notifications = typeof window.getUserNotifications === 'function' ? window.getUserNotifications(email) : [];
+            return Array.isArray(notifications)
+                ? notifications.filter((notification) => notification && notification.type === 'private-message' && !notification.read).length
+                : 0;
+        }
+
+        function renderQuickStats(profile, email) {
+            const threadsNode = document.getElementById('profile_stat_threads');
+            const testsNode = document.getElementById('profile_stat_tests');
+            const unreadNode = document.getElementById('profile_stat_unread');
+            if (!threadsNode || !testsNode || !unreadNode) return;
+
+            const scores = Array.isArray(profile && profile.scores) ? profile.scores : [];
+            threadsNode.textContent = String(countThreadsPosted(email));
+            testsNode.textContent = String(scores.length);
+            unreadNode.textContent = String(countUnreadMessages(email));
+        }
+
         // render profile page using functions in script.js
         async function loadProfilePage() {
             document.title = t('profile.pageTitle', 'Profile - SIMBA PROJECT');
-            const current = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(e){ return null; } })();
+            let current = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(e){ return null; } })();
+            if (!current || !current.email) {
+                try {
+                    const meRes = await fetch('/api/me', { credentials: 'include' });
+                    if (meRes.ok) {
+                        const meData = await meRes.json();
+                        if (meData && meData.user && meData.user.email) {
+                            current = meData.user;
+                            localStorage.setItem('simba_user', JSON.stringify(current));
+                        }
+                    }
+                } catch (error) {}
+            }
             if (!current || !current.email) {
                 document.getElementById('profile_name').innerText = t('profile.notLoggedIn', 'Not logged in');
                 document.getElementById('profile_bio').innerText = t('profile.loginPrompt', 'Please login to see your profile.');
@@ -310,24 +650,18 @@
 
             let profile = {};
             try { profile = JSON.parse(localStorage.getItem('simba_profile_'+viewingEmail)||'{}'); } catch(e){}
-            if (!profile || Object.keys(profile).length === 0) {
-                try {
-                    const ping = await fetch('/api/ping');
-                    if (ping.ok) {
-                        const res = await fetch('/api/profile', { credentials: 'include' });
-                        if (res.ok) {
-                            const d = await res.json();
-                            profile = d.profile || {};
-                        }
-                    }
-                } catch(e){}
+            const serverProfile = await loadProfileFromServer(viewingEmail);
+            if (serverProfile) {
+                profile = { ...profile, ...serverProfile };
+                localStorage.setItem('simba_profile_' + viewingEmail, JSON.stringify(profile));
             }
 
             document.getElementById('profile_avatar').src = profile.avatar || '../content/img/profil.png';
             document.getElementById('profile_name').innerText = profile.name || viewingEmail;
             document.getElementById('profile_bio').innerText = profile.bio || '';
 
-            if (currentRole === 'admin') {
+            const viewedProfileRole = profile.role || (typeof window.getUserRoleByEmail === 'function' ? window.getUserRoleByEmail(viewingEmail) : 'user');
+            if (viewedProfileRole === 'admin') {
                 const profileName = document.getElementById('profile_name');
                 if (profileName && !profileName.querySelector('.user-role-badge')) {
                     profileName.insertAdjacentHTML('beforeend', `<span class="user-role-badge user-role-badge--admin">${t('profile.adminBadge', 'Admin')}</span>`);
@@ -336,11 +670,16 @@
 
             const scores = Array.isArray(profile.scores) ? profile.scores : [];
             renderScoreHistory(scores);
+            renderQuickStats(profile, viewingEmail);
+            await ensureForumActivityCache();
             renderNotifications(viewingEmail);
             renderForumActivity(viewingEmail);
 
             const lookupInput = document.getElementById('profile_lookup_email');
             if (lookupInput) lookupInput.value = viewingEmail;
+            bindProfileLookupAutocomplete();
+            renderAdminProfilesList();
+            bindAdminLookupAutocomplete();
 
             const backBtn = document.getElementById('profile_back_to_me_btn');
             if (backBtn) backBtn.disabled = !viewingProfileIsAdminSelected;
@@ -418,6 +757,25 @@
             const avatar = editor.dataset.currentAvatar || '../content/img/profil.png';
             const existingProfile = (()=>{ try { return JSON.parse(localStorage.getItem('simba_profile_' + current.email) || '{}'); } catch(e){ return {}; } })();
             const newProfile = { ...existingProfile, name, bio, avatar };
+            let savedOnServer = false;
+            try {
+                const ping = await fetch('/api/ping');
+                if (ping.ok) {
+                    const res = await fetch('/api/profile', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify(newProfile)
+                    });
+                    savedOnServer = !!(res && res.ok);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data && data.profile) {
+                            localStorage.setItem('simba_profile_' + current.email, JSON.stringify(data.profile));
+                        }
+                    }
+                }
+            } catch (error) {}
             localStorage.setItem('simba_profile_' + current.email, JSON.stringify(newProfile));
             document.getElementById('profile_avatar').src = avatar;
             document.getElementById('profile_name').innerText = name || current.email;
@@ -430,7 +788,7 @@
                 window.updateAuthUI();
             }
             try { window.dispatchEvent(new CustomEvent('simba-profile-updated', { detail: newProfile })); } catch(e){}
-            alert(t('profile.profileSaved', 'Profile saved'));
+            alert(savedOnServer ? t('modal.profileSavedServer', 'Profile saved (server)') : t('modal.profileSavedLocal', 'Profile saved (local)'));
         });
 
         document.getElementById('profile_promote_admin_btn')?.addEventListener('click', function(){
@@ -449,6 +807,7 @@
                 return;
             }
             if (message) message.textContent = t('profile.adminGranted', 'Admin granted.');
+            renderAdminProfilesList();
         });
 
         document.getElementById('profile_revoke_admin_btn')?.addEventListener('click', function(){
@@ -467,6 +826,7 @@
                 return;
             }
             if (message) message.textContent = t('profile.adminAccessRemoved', 'Admin access removed.');
+            renderAdminProfilesList();
         });
 
         document.getElementById('profile_lookup_btn')?.addEventListener('click', function(){
@@ -503,11 +863,12 @@
                 document.getElementById('profile_bio').innerText = profile.bio || '';
                 const scores = Array.isArray(profile.scores) ? profile.scores : [];
                     renderScoreHistory(scores);
+                renderQuickStats(profile, viewingEmail || current.email);
                 if (typeof window.refreshProfileButton === 'function') {
                     window.refreshProfileButton();
                 }
             } else {
-                    try { const p = JSON.parse(localStorage.getItem('simba_profile_'+current.email)||'{}'); if (p) { document.getElementById('profile_avatar').src = p.avatar||'../content/img/profil.png'; document.getElementById('profile_name').innerText = p.name||current.email; document.getElementById('profile_bio').innerText = p.bio||''; const scores = Array.isArray(p.scores) ? p.scores : []; renderScoreHistory(scores); } } catch(e){}
+                    try { const p = JSON.parse(localStorage.getItem('simba_profile_'+current.email)||'{}'); if (p) { document.getElementById('profile_avatar').src = p.avatar||'../content/img/profil.png'; document.getElementById('profile_name').innerText = p.name||current.email; document.getElementById('profile_bio').innerText = p.bio||''; const scores = Array.isArray(p.scores) ? p.scores : []; renderScoreHistory(scores); renderQuickStats(p, current.email); } } catch(e){}
                 if (typeof window.refreshProfileButton === 'function') {
                     window.refreshProfileButton();
                 }

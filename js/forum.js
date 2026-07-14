@@ -57,12 +57,37 @@
         }
     }
 
-    function saveThreads(threads) {
+    async function saveThreads(threads) {
+        const nextThreads = Array.isArray(threads) ? threads.slice(0, MAX_THREADS) : [];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextThreads));
         if (typeof window.saveForumThreads === 'function') {
-            window.saveForumThreads(threads);
-            return;
+            await window.saveForumThreads(nextThreads);
+            return nextThreads;
         }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify((threads || []).slice(0, MAX_THREADS)));
+        try {
+            await fetch('/api/forum/threads', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ threads: nextThreads })
+            });
+        } catch (error) {}
+        return nextThreads;
+    }
+
+    async function syncForumThreadsFromServer() {
+        try {
+            const ping = await fetch('/api/ping');
+            if (!ping.ok) return loadThreads();
+            const res = await fetch('/api/forum/threads', { credentials: 'include' });
+            if (!res.ok) return loadThreads();
+            const data = await res.json();
+            const items = Array.isArray(data.threads) ? data.threads.slice(0, MAX_THREADS) : [];
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+            return items;
+        } catch (error) {
+            return loadThreads();
+        }
     }
 
     function createId() {
@@ -336,9 +361,24 @@
         return { ok: true };
     }
 
-    function renderForum() {
+    async function renderForum() {
         const app = document.getElementById('forumApp');
         if (!app) return;
+
+        await syncForumThreadsFromServer();
+
+        const currentSession = (() => { try { return JSON.parse(localStorage.getItem('simba_user') || 'null'); } catch (error) { return null; } })();
+        if (!currentSession || !currentSession.email) {
+            try {
+                const meRes = await fetch('/api/me', { credentials: 'include' });
+                if (meRes.ok) {
+                    const meData = await meRes.json();
+                    if (meData && meData.user && meData.user.email) {
+                        localStorage.setItem('simba_user', JSON.stringify(meData.user));
+                    }
+                }
+            } catch (error) {}
+        }
 
         const identity = getPostingIdentity();
         const threads = loadThreads().filter((thread) => !thread.deleted).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -395,18 +435,6 @@
                             <button class="forum-submit-btn" type="submit">${t('forum.postMessage', 'Post message')}</button>
                         </div>
                     </form>
-                    ${identity.canManageAdminAccess ? `
-                        <div class="forum-admin-tools">
-                            <h3>Admin tools</h3>
-                            <p>Promote or revoke admin access from the forum.</p>
-                            <div class="forum-admin-tools__row">
-                                <input id="forumAdminEmail" type="email" placeholder="user@example.com" />
-                                <button id="forumAdminPromote" type="button" class="forum-submit-btn forum-submit-btn--small">Make admin</button>
-                                <button id="forumAdminRevoke" type="button" class="forum-submit-btn forum-submit-btn--small">Remove admin</button>
-                            </div>
-                            <p id="forumAdminMessage" class="forum-admin-tools__message"></p>
-                        </div>
-                    ` : ''}
                 </div>
 
                 <div class="forum-panel forum-board">
@@ -470,11 +498,11 @@
                     reactions: {},
                     reactionUsers: {}
                 });
-                saveThreads(nextThreads);
+                await saveThreads(nextThreads);
                 if (note) note.textContent = t('forum.posted', 'Your message has been posted.');
                 form.reset();
                 document.getElementById('forumName').value = identity.name;
-                renderForum();
+                await renderForum();
             });
         }
 
@@ -522,53 +550,10 @@
                     reactionUsers: {}
                 });
                 saveThreads(threads);
-                renderForum();
+                void renderForum();
             });
         });
 
-        const adminPromote = document.getElementById('forumAdminPromote');
-        if (adminPromote) {
-            adminPromote.addEventListener('click', function() {
-                const emailInput = document.getElementById('forumAdminEmail');
-                const message = document.getElementById('forumAdminMessage');
-                const targetEmail = (emailInput && emailInput.value || '').trim();
-                if (!targetEmail) {
-                    if (message) message.textContent = t('forum.enterEmailFirst', 'Enter an account email first.');
-                    return;
-                }
-                const result = typeof window.promoteLocalUserToAdmin === 'function'
-                    ? window.promoteLocalUserToAdmin(targetEmail)
-                    : { ok: false, reason: 'unavailable' };
-                if (!result.ok) {
-                    if (message) message.textContent = result.reason === 'not-found' ? t('forum.accountNotFound', 'Account not found.') : t('forum.couldNotPromote', 'Could not promote this account.');
-                    return;
-                }
-                if (message) message.textContent = t('forum.adminGranted', 'Admin granted.');
-                renderForum();
-            });
-        }
-
-        const adminRevoke = document.getElementById('forumAdminRevoke');
-        if (adminRevoke) {
-            adminRevoke.addEventListener('click', function() {
-                const emailInput = document.getElementById('forumAdminEmail');
-                const message = document.getElementById('forumAdminMessage');
-                const targetEmail = (emailInput && emailInput.value || '').trim();
-                if (!targetEmail) {
-                    if (message) message.textContent = t('forum.enterEmailFirst', 'Enter an account email first.');
-                    return;
-                }
-                const result = typeof window.revokeLocalUserAdmin === 'function'
-                    ? window.revokeLocalUserAdmin(targetEmail)
-                    : { ok: false, reason: 'unavailable' };
-                if (!result.ok) {
-                    if (message) message.textContent = result.reason === 'not-found' ? t('forum.accountNotFound', 'Account not found.') : t('forum.couldNotRemove', 'Could not remove admin access.');
-                    return;
-                }
-                if (message) message.textContent = t('forum.adminAccessRemoved', 'Admin access removed.');
-                renderForum();
-            });
-        }
     }
 
     function wireModerationControls(root) {
@@ -635,7 +620,7 @@
                     panel.querySelector('.forum-moderation-panel__help').textContent = selectedReason === 'other' ? t('forum.provideReason', 'Please provide a reason.') : t('forum.couldNotDelete', 'Could not delete this post.');
                     return;
                 }
-                renderForum();
+                void renderForum();
             });
         });
 
@@ -647,7 +632,7 @@
                 if (!window.confirm(t('forum.deletePermanentlyConfirm', 'Delete this post permanently?'))) return;
                 const result = deleteOwnForumItem(targetType, targetId);
                 if (!result.ok) return;
-                renderForum();
+                void renderForum();
             });
         });
 
@@ -664,7 +649,7 @@
                     }
                     return;
                 }
-                renderForum();
+                void renderForum();
             });
         });
     }
@@ -750,15 +735,15 @@
         `;
     }
 
-    document.addEventListener('DOMContentLoaded', renderForum);
-    window.addEventListener('simba-language-changed', renderForum);
+    document.addEventListener('DOMContentLoaded', () => { void renderForum(); });
+    window.addEventListener('simba-language-changed', () => { void renderForum(); });
     if (document.readyState !== 'loading') {
-        renderForum();
+        void renderForum();
     }
 
     document.addEventListener('forum-render-complete', function(event) {
         wireModerationControls(event && event.detail && event.detail.root ? event.detail.root : document);
     });
 
-    window.addEventListener('simba-admin-role-changed', renderForum);
+    window.addEventListener('simba-admin-role-changed', () => { void renderForum(); });
 })();

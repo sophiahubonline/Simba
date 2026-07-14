@@ -432,9 +432,18 @@ function getForumThreads() {
     }
 }
 
-function saveForumThreads(threads) {
+async function saveForumThreads(threads) {
     const nextThreads = Array.isArray(threads) ? threads.slice(0, 100) : [];
     localStorage.setItem(SIMBA_FORUM_THREADS_KEY, JSON.stringify(nextThreads));
+    try {
+        await fetchWithTimeout('/api/forum/threads', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ threads: nextThreads }),
+            credentials: 'include',
+            timeout: 5000
+        });
+    } catch (error) {}
 }
 
 function getUserNotifications(email) {
@@ -789,7 +798,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // If set to true, the app will not attempt any network/API calls and will use localStorage only.
-    const SIMBA_FORCE_LOCAL = true;
+    const SIMBA_FORCE_LOCAL = false;
 
     function attachAuthHandlers() {
 
@@ -838,14 +847,20 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="tab-content" data-tab="login">
                                 <h3>${simbaT('modal.loginTitle', 'Login')}</h3>
                                 <input id="simba_email" placeholder="${simbaT('modal.email', 'Email')}" />
-                                <input id="simba_password" type="password" placeholder="${simbaT('modal.password', 'Password')}" />
+                                <div class="simba-password-field">
+                                    <input id="simba_password" type="password" placeholder="${simbaT('modal.password', 'Password')}" />
+                                    <button type="button" class="simba-password-toggle" data-target="simba_password" aria-pressed="false">${simbaT('modal.showPassword', 'Show')}</button>
+                                </div>
                                 <div style="margin-top:0.7rem"><button id="simba_login_btn" class="btn">${simbaT('modal.loginButton', 'Login')}</button></div>
                                 <div id="simba_msg" style="margin-top:0.8rem;color:red"></div>
                             </div>
                             <div class="tab-content" data-tab="signup" style="display:none;">
                                 <h3>${simbaT('modal.signupTitle', 'Sign Up')}</h3>
                                 <input id="simba_s_email" placeholder="${simbaT('modal.email', 'Email')}" />
-                                <input id="simba_s_password" type="password" placeholder="${simbaT('modal.password', 'Password')}" />
+                                <div class="simba-password-field">
+                                    <input id="simba_s_password" type="password" placeholder="${simbaT('modal.password', 'Password')}" />
+                                    <button type="button" class="simba-password-toggle" data-target="simba_s_password" aria-pressed="false">${simbaT('modal.showPassword', 'Show')}</button>
+                                </div>
                                 <div style="margin-top:0.7rem"><button id="simba_signup_btn" class="btn">${simbaT('modal.signupButton', 'Sign Up')}</button></div>
                                 <div id="simba_s_msg" style="margin-top:0.8rem;color:red"></div>
                             </div>
@@ -869,6 +884,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     .simba-modal-tabs{display:flex;gap:8px;margin-bottom:8px}
                     .tab-btn{flex:1;padding:0.5rem;border-radius:8px;border:1px solid #eee;background:#f7f7f7}
                     .tab-content input{width:100%;padding:0.6rem;border-radius:8px;border:1px solid #ddd;margin-top:0.5rem}
+                    .simba-password-field{display:flex;gap:0.5rem;align-items:stretch;margin-top:0.5rem}
+                    .simba-password-field input{flex:1 1 auto;margin-top:0}
+                    .simba-password-toggle{flex:0 0 auto;border:1px solid rgba(31,46,68,0.14);background:#fff;color:#1f2e44;padding:0.6rem 0.85rem;border-radius:8px;cursor:pointer;font:inherit;font-weight:600;white-space:nowrap}
+                    .simba-password-toggle:hover{border-color:rgba(196,114,26,0.45);color:#b8651c}
                 `;
                 div.appendChild(style);
 
@@ -881,6 +900,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 tabBtns.forEach(b=>b.addEventListener('click', ()=>{
                     const t=b.getAttribute('data-tab');
                     switchTab(t,div);
+                }));
+
+                const passwordToggleButtons = div.querySelectorAll('.simba-password-toggle');
+                passwordToggleButtons.forEach(button => button.addEventListener('click', () => {
+                    const targetId = button.getAttribute('data-target');
+                    const input = div.querySelector(`#${targetId}`);
+                    if (!input) return;
+                    const shouldShow = input.type === 'password';
+                    input.type = shouldShow ? 'text' : 'password';
+                    button.textContent = shouldShow ? simbaT('modal.hidePassword', 'Hide') : simbaT('modal.showPassword', 'Show');
+                    button.setAttribute('aria-pressed', String(shouldShow));
                 }));
 
                 function switchTab(t,container){
@@ -916,10 +946,10 @@ document.addEventListener('DOMContentLoaded', function() {
                                             <div style="margin-top:0.6rem"><label>${simbaT('modal.uploadAvatar', 'Custom Avatar (upload)')}</label><input id="simba_avatar_file" type="file" accept="image/*" /></div>
                                             ${current && current.email && current.role === 'admin' ? `
                                                 <div class="simba-admin-panel">
-                                                    <h4>Admin tools</h4>
-                                                    <p>Promote an existing account to admin.</p>
-                                                    <input id="simba_admin_email" type="email" placeholder="user@example.com" />
-                                                    <button id="simba_promote_admin" class="btn" type="button">Make admin</button>
+                                                    <h4>${simbaT('profile.adminTools', 'Admin tools')}</h4>
+                                                    <p>${simbaT('profile.adminToolsDescription', 'Promote or revoke admin access for existing accounts.')}</p>
+                                                    <input id="simba_admin_email" type="email" placeholder="${simbaT('profile.adminEmailPlaceholder', 'Email address')}" />
+                                                    <button id="simba_promote_admin" class="btn" type="button">${simbaT('profile.makeAdmin', 'Make admin')}</button>
                                                     <div id="simba_admin_msg" style="margin-top:0.5rem"></div>
                                                 </div>
                                             ` : ''}
@@ -981,7 +1011,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             const adminMsg = container.querySelector('#simba_admin_msg');
                             const targetEmail = (container.querySelector('#simba_admin_email')?.value || '').trim();
                             if (!targetEmail) {
-                                if (adminMsg) adminMsg.textContent = 'Enter an account email.';
+                                if (adminMsg) adminMsg.textContent = simbaT('profile.enterEmailFirst', 'Enter an account email first.');
                                 return;
                             }
                             const result = typeof promoteLocalUserToAdmin === 'function'
@@ -1084,6 +1114,8 @@ document.addEventListener('DOMContentLoaded', function() {
             fetchWithTimeout('/api/me', { credentials: 'include', timeout: 3000 }).then(r => r.json()).then(data => {
                 const user = data && data.user ? data.user : null;
                 if (user && user.email) {
+                    setCurrentSessionUser(user.email, { role: user.role || getLocalUserRole(user.email) });
+                    void loadProfileForCurrentUser();
                     // render profile button with avatar placeholder, refreshProfileButton() will update the image
                     authSection.innerHTML = `<span class="user-greeting">${user.email}</span><button class="logout-btn">${simbaT('auth.signout', 'Sign out')}</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
                 } else {
@@ -1126,7 +1158,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     const res = await fetchWithTimeout('/api/profile', { credentials: 'include', timeout: 5000 });
                     if (res && res.ok) {
                         const data = await res.json();
-                        return data.profile || {};
+                        const profile = data.profile || {};
+                        if (current && current.email) {
+                            setStoredProfile(current.email, profile);
+                        }
+                        return profile;
                     }
                 }
             } catch(e) { /* ignore */ }

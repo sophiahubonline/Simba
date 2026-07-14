@@ -207,7 +207,15 @@
         const startOffset = (gridStart.getDay() + 6) % 7;
         gridStart.setDate(gridStart.getDate() - startOffset);
 
-        const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const dayNames = [
+            t('visios.weekDays.mon', 'Mon'),
+            t('visios.weekDays.tue', 'Tue'),
+            t('visios.weekDays.wed', 'Wed'),
+            t('visios.weekDays.thu', 'Thu'),
+            t('visios.weekDays.fri', 'Fri'),
+            t('visios.weekDays.sat', 'Sat'),
+            t('visios.weekDays.sun', 'Sun')
+        ];
         const weeks = [];
         let cursor = new Date(gridStart);
 
@@ -348,10 +356,10 @@
                     <label>
                         ${t('visios.durationLabel', 'Duration')}
                         <select id="visioDuration">
-                            <option value="30">30 min</option>
-                            <option value="45" selected>45 min</option>
-                            <option value="60">60 min</option>
-                            <option value="90">90 min</option>
+                            <option value="30">${t('visios.duration30', '30 min')}</option>
+                            <option value="45" selected>${t('visios.duration45', '45 min')}</option>
+                            <option value="60">${t('visios.duration60', '60 min')}</option>
+                            <option value="90">${t('visios.duration90', '90 min')}</option>
                         </select>
                     </label>
                     <label class="visios-form__invitees" data-invitees-field>
@@ -359,10 +367,10 @@
                         <input id="visioInvitees" type="text" placeholder="${t('visios.inviteesPlaceholder', 'friend@example.com, teammate@example.com')}" />
                     </label>
                 </div>
-                <label>
-                    Description
-                    <textarea id="visioDescription" rows="4" maxlength="800" placeholder="${t('visios.heroLead', 'Plan private or public video sessions, control who can see each slot, and join when the time comes.')}"></textarea>
-                </label>
+                    <label>
+                        ${t('visios.descriptionLabel', 'Description')}
+                        <textarea id="visioDescription" rows="4" maxlength="800" placeholder="${t('visios.heroLead', 'Plan private or public video sessions, control who can see each slot, and join when the time comes.')}"></textarea>
+                    </label>
                 <div class="visios-form__footer">
                     <span id="visioAdminMessage" class="visios-form__message"></span>
                     <button type="submit" class="btn-primary">${t('visios.createMeeting', 'Create slot')}</button>
@@ -394,7 +402,7 @@
             if (!result.ok) {
                 if (message) {
                     message.textContent = result.reason === 'invalid-date'
-                        ? t('visios.accessDenied', 'You do not have access to this visio.')
+                        ? t('visios.invalidDate', 'Invalid date or time.')
                         : t('visios.missingFields', 'Please fill in the title, date, and time.');
                 }
                 return;
@@ -451,9 +459,9 @@
                         <label>
                             ${t('visios.durationLabel', 'Duration')}
                             <select id="visioDuration">
-                                <option value="30">30 min</option>
-                                <option value="45" selected>45 min</option>
-                                <option value="60">60 min</option>
+                                <option value="30">${t('visios.duration30', '30 min')}</option>
+                                <option value="45" selected>${t('visios.duration45', '45 min')}</option>
+                                <option value="60">${t('visios.duration60', '60 min')}</option>
                             </select>
                         </label>
                     </div>

@@ -43,7 +43,7 @@
                     <div class="profile-grid">
                         <div class="profile-stat"><h4 data-i18n="messages.threads">Threads</h4><div id="messages_thread_count">0</div></div>
                         <div class="profile-stat"><h4 data-i18n="messages.unread">Unread</h4><div id="messages_unread_count">0</div></div>
-                        <div class="profile-stat"><h4 data-i18n="messages.role">Role</h4><div id="messages_role_label">User</div></div>
+                        <div class="profile-stat"><h4 data-i18n="messages.testsDone">Tests done</h4><div id="messages_tests_count">0</div></div>
                     </div>
                 </div>
             </aside>
@@ -94,6 +94,7 @@
         let activeThreadEmail = '';
         let currentUserEmail = '';
         let currentUserRole = 'user';
+        let privateMessagesHydrationPromise = null;
 
         function normalizeEmail(value) {
             return String(value || '').trim().toLowerCase();
@@ -140,6 +141,11 @@
             return (profile && profile.avatar) || '../content/img/profil.png';
         }
 
+        function getTestsDoneForEmail(email) {
+            const profile = getStoredProfile(email);
+            return Array.isArray(profile && profile.scores) ? profile.scores.length : 0;
+        }
+
         function translateMessagesPage() {
             document.title = t('messages.title', 'Messages - SIMBA PROJECT');
             const avatar = document.getElementById('messages_avatar');
@@ -149,7 +155,7 @@
             const overview = document.getElementById('messages_overview_label');
             const threadsLabel = document.querySelector('#messages_thread_count')?.closest('.profile-stat')?.querySelector('h4');
             const unreadLabel = document.querySelector('#messages_unread_count')?.closest('.profile-stat')?.querySelector('h4');
-            const roleLabel = document.querySelector('#messages_role_label')?.closest('.profile-stat')?.querySelector('h4');
+            const testsLabel = document.querySelector('#messages_tests_count')?.closest('.profile-stat')?.querySelector('h4');
             const heading = document.getElementById('messages_heading');
             const hint = document.getElementById('messages_hint');
             const input = document.getElementById('messages_input');
@@ -162,7 +168,7 @@
             if (overview) overview.textContent = t('messages.overview', 'Overview');
             if (threadsLabel) threadsLabel.textContent = t('messages.threads', 'Threads');
             if (unreadLabel) unreadLabel.textContent = t('messages.unread', 'Unread');
-            if (roleLabel) roleLabel.textContent = t('messages.role', 'Role');
+            if (testsLabel) testsLabel.textContent = t('messages.testsDone', 'Tests done');
             if (heading) heading.textContent = t('messages.heading', 'Messages');
             if (hint) hint.textContent = t('messages.hint', 'Open a private conversation and reply without posting publicly.');
             if (input) input.placeholder = t('messages.writePrivateMessage', 'Write a private message...');
@@ -194,7 +200,35 @@
         }
 
         function savePrivateMessageThreads(threads) {
-            localStorage.setItem(SIMBA_PRIVATE_MESSAGES_KEY, JSON.stringify(Array.isArray(threads) ? threads : []));
+            const nextThreads = Array.isArray(threads) ? threads : [];
+            localStorage.setItem(SIMBA_PRIVATE_MESSAGES_KEY, JSON.stringify(nextThreads));
+            try {
+                fetch('/api/private-messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ threads: nextThreads })
+                }).catch(() => {});
+            } catch (error) {}
+        }
+
+        async function syncPrivateMessagesFromServer() {
+            if (privateMessagesHydrationPromise) return privateMessagesHydrationPromise;
+            privateMessagesHydrationPromise = (async () => {
+                try {
+                    const ping = await fetch('/api/ping');
+                    if (!ping.ok) return getPrivateMessageThreads();
+                    const res = await fetch('/api/private-messages', { credentials: 'include' });
+                    if (!res.ok) return getPrivateMessageThreads();
+                    const data = await res.json();
+                    const items = Array.isArray(data.threads) ? data.threads : [];
+                    localStorage.setItem(SIMBA_PRIVATE_MESSAGES_KEY, JSON.stringify(items));
+                    return items;
+                } catch (error) {
+                    return getPrivateMessageThreads();
+                }
+            })();
+            return privateMessagesHydrationPromise;
         }
 
         function ensurePrivateMessageThread(userEmail) {
@@ -333,14 +367,14 @@
             const bio = document.getElementById('messages_bio');
             const threadCount = document.getElementById('messages_thread_count');
             const unreadCount = document.getElementById('messages_unread_count');
-            const roleLabel = document.getElementById('messages_role_label');
+            const testsCount = document.getElementById('messages_tests_count');
 
             if (!header || !body || !input || !sendButton || !status || !hint) return;
 
             const visibleThreads = getVisibleThreads();
             if (threadCount) threadCount.textContent = String(visibleThreads.length);
             if (unreadCount) unreadCount.textContent = '0';
-            if (roleLabel) roleLabel.textContent = currentUserRole === 'admin' ? t('messages.adminRole', 'Admin') : t('messages.userRole', 'User');
+            if (testsCount) testsCount.textContent = String(getTestsDoneForEmail(currentUserEmail));
             if (avatar) avatar.src = getAvatarForEmail(currentUserEmail);
             if (name) name.textContent = currentUserRole === 'admin' ? t('messages.adminInbox', 'Admin inbox') : (getStoredProfile(currentUserEmail).name || currentUserEmail || t('messages.pageTitle', 'Messages'));
             if (bio) bio.textContent = currentUserRole === 'admin' ? t('messages.choosePerson', 'Choose a person to see the discussion.') : t('messages.directToAdmins', 'Private conversation with the admin.');
@@ -389,8 +423,20 @@
             body.scrollTop = body.scrollHeight;
         }
 
-        function refreshPage() {
-            const currentSession = getCurrentSessionUser();
+        async function refreshPage() {
+            let currentSession = getCurrentSessionUser();
+            if (!currentSession || !currentSession.email) {
+                try {
+                    const meRes = await fetch('/api/me', { credentials: 'include' });
+                    if (meRes.ok) {
+                        const meData = await meRes.json();
+                        if (meData && meData.user && meData.user.email) {
+                            currentSession = meData.user;
+                            localStorage.setItem('simba_user', JSON.stringify(currentSession));
+                        }
+                    }
+                } catch (error) {}
+            }
             if (!currentSession || !currentSession.email) {
                 document.getElementById('messages_name').textContent = t('messages.noLoginTitle', 'Not logged in');
                 document.getElementById('messages_bio').textContent = t('messages.noLoginBody', 'Please log in to access private messages.');
@@ -403,6 +449,7 @@
 
             currentUserEmail = normalizeEmail(currentSession.email);
             currentUserRole = currentSession.role || 'user';
+            await syncPrivateMessagesFromServer();
             const requestedEmail = new URL(window.location.href).searchParams.get('user');
             activeThreadEmail = currentUserRole === 'admin' ? normalizeEmail(requestedEmail || activeThreadEmail || '') : currentUserEmail;
             if (currentUserRole === 'admin' && !activeThreadEmail) {
@@ -416,11 +463,11 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            refreshPage();
+            void refreshPage();
         });
 
         window.addEventListener('simba-language-changed', function() {
-            refreshPage();
+            void refreshPage();
         });
 
         window.addEventListener('storage', function(event) {
@@ -465,7 +512,7 @@
             appendPrivateMessage(thread, senderEmail, senderRole, body);
             notifyThreadRecipient(thread, senderRole, body);
             input.value = '';
-            refreshPage();
+            void refreshPage();
         });
     </script>
 </body>

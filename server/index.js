@@ -7,6 +7,59 @@ const cors = require('cors');
 // simple file-based user store (for initial dev as requested)
 const fs = require('fs').promises;
 const usersFile = path.join(__dirname, 'users.json');
+const forumThreadsFile = path.join(__dirname, 'forum-threads.json');
+const privateMessagesFile = path.join(__dirname, 'private-messages.json');
+
+const SERVER_ADMIN_EMAIL = 'createwithus@simbajourney.com';
+
+function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+function isAdminEmail(email) {
+  return normalizeEmail(email) === normalizeEmail(SERVER_ADMIN_EMAIL);
+}
+
+async function readJsonFile(filePath, fallback) {
+  try {
+    const txt = await fs.readFile(filePath, 'utf8');
+    const parsed = JSON.parse(txt || 'null');
+    return parsed == null ? fallback : parsed;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+async function writeJsonFile(filePath, value) {
+  await fs.writeFile(filePath, JSON.stringify(value, null, 2), 'utf8');
+}
+
+function getProfileDisplayName(user) {
+  if (!user) return '';
+  return String((user.profile && user.profile.name) || user.display_name || user.email || '').trim();
+}
+
+function searchUsersByQuery(users, query) {
+  const normalizedQuery = normalizeEmail(query);
+  if (!normalizedQuery) return [];
+
+  return users
+    .map((user) => ({
+      email: normalizeEmail(user && user.email),
+      name: getProfileDisplayName(user),
+      avatar: (user && user.profile && user.profile.avatar) || '',
+      role: (user && user.profile && user.profile.role) || user.role || 'user'
+    }))
+    .filter((item, index, array) => item.email && array.findIndex((candidate) => candidate.email === item.email) === index)
+    .filter((item) => item.email.includes(normalizedQuery) || normalizeEmail(item.name).includes(normalizedQuery))
+    .sort((left, right) => {
+      const leftExact = left.email.startsWith(normalizedQuery) || normalizeEmail(left.name).startsWith(normalizedQuery) ? 0 : 1;
+      const rightExact = right.email.startsWith(normalizedQuery) || normalizeEmail(right.name).startsWith(normalizedQuery) ? 0 : 1;
+      if (leftExact !== rightExact) return leftExact - rightExact;
+      return left.email.localeCompare(right.email);
+    })
+    .slice(0, 5);
+}
 
 async function loadUsers() {
   try {
@@ -172,9 +225,14 @@ app.get('/api/ping', (req, res) => {
 app.get('/api/profile', async (req, res) => {
   const token = req.cookies && req.cookies.token;
   if (!token) return res.status(401).json({ error: 'Not authenticated' });
+  const requestedEmail = normalizeEmail(req.query && req.query.email);
   jwt.verify(token, JWT_SECRET, async (err, payload) => {
     if (err) return res.status(401).json({ error: 'Invalid token' });
-    const user = await getUserById(payload.id);
+    const currentEmail = normalizeEmail(payload.email);
+    if (requestedEmail && requestedEmail !== currentEmail && !isAdminEmail(currentEmail)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const user = requestedEmail ? await getUserByEmail(requestedEmail) : await getUserById(payload.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
     return res.json({ profile: user.profile || {} });
   });
@@ -190,6 +248,67 @@ app.post('/api/profile', async (req, res) => {
     if (!user) return res.status(404).json({ error: 'User not found' });
     const updated = await updateUser(user.id, { profile: { ...(user.profile||{}), name: name||'', bio: bio||'', avatar: avatar||'' } });
     return res.json({ ok: true, profile: updated.profile });
+  });
+});
+
+app.get('/api/profiles/search', async (req, res) => {
+  const query = String(req.query && req.query.q ? req.query.q : '').trim();
+  const users = await loadUsers();
+  const results = searchUsersByQuery(users, query);
+  return res.json({ profiles: results });
+});
+
+app.get('/api/forum/threads', async (req, res) => {
+  const threads = await readJsonFile(forumThreadsFile, []);
+  return res.json({ threads: Array.isArray(threads) ? threads : [] });
+});
+
+app.post('/api/forum/threads', async (req, res) => {
+  const threads = Array.isArray(req.body && req.body.threads) ? req.body.threads : (Array.isArray(req.body) ? req.body : []);
+  const nextThreads = threads.slice(0, 100);
+  await writeJsonFile(forumThreadsFile, nextThreads);
+  return res.json({ ok: true, threads: nextThreads });
+});
+
+app.get('/api/private-messages', async (req, res) => {
+  const token = req.cookies && req.cookies.token;
+  if (!token) return res.status(401).json({ error: 'Not authenticated' });
+
+  jwt.verify(token, JWT_SECRET, async (err, payload) => {
+    if (err) return res.status(401).json({ error: 'Invalid token' });
+    const currentEmail = normalizeEmail(payload.email);
+    const threads = await readJsonFile(privateMessagesFile, []);
+    if (isAdminEmail(currentEmail)) {
+      return res.json({ threads: Array.isArray(threads) ? threads : [] });
+    }
+
+    const filtered = (Array.isArray(threads) ? threads : []).filter((thread) => normalizeEmail(thread && thread.userEmail) === currentEmail);
+    return res.json({ threads: filtered });
+  });
+});
+
+app.post('/api/private-messages', async (req, res) => {
+  const token = req.cookies && req.cookies.token;
+  if (!token) return res.status(401).json({ error: 'Not authenticated' });
+
+  jwt.verify(token, JWT_SECRET, async (err, payload) => {
+    if (err) return res.status(401).json({ error: 'Invalid token' });
+
+    const currentEmail = normalizeEmail(payload.email);
+    const incomingThreads = Array.isArray(req.body && req.body.threads) ? req.body.threads : (Array.isArray(req.body) ? req.body : []);
+    const existingThreads = await readJsonFile(privateMessagesFile, []);
+
+    let nextThreads;
+    if (isAdminEmail(currentEmail)) {
+      nextThreads = incomingThreads;
+    } else {
+      const ownThreads = incomingThreads.filter((thread) => normalizeEmail(thread && thread.userEmail) === currentEmail);
+      const preservedThreads = (Array.isArray(existingThreads) ? existingThreads : []).filter((thread) => normalizeEmail(thread && thread.userEmail) !== currentEmail);
+      nextThreads = [...ownThreads, ...preservedThreads];
+    }
+
+    await writeJsonFile(privateMessagesFile, nextThreads.slice(0, 200));
+    return res.json({ ok: true, threads: nextThreads });
   });
 });
 
