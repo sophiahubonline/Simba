@@ -1382,6 +1382,11 @@ body {
     margin: 0 auto;
 }
 
+.visios-panel--composer {
+    max-width: 1400px;
+    margin: 0 auto 1.5rem;
+}
+
 .visios-panel-heading {
     display: flex;
     justify-content: space-between;
@@ -1400,6 +1405,11 @@ body {
     font-size: 0.78rem;
     font-weight: 700;
     white-space: nowrap;
+}
+
+.visio-chip--secondary {
+    background: rgba(46, 63, 95, 0.08);
+    color: var(--color-navy-dark);
 }
 
 .visio-calendar__header,
@@ -1511,6 +1521,10 @@ body {
     flex-wrap: wrap;
 }
 
+.visios-form--request {
+    margin-top: 1rem;
+}
+
 .visio-card__delete {
     border: none;
     background: transparent;
@@ -1620,6 +1634,37 @@ body {
     border: 1px solid rgba(31, 46, 68, 0.15);
 }
 
+.visio-room__overlay {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    right: 1rem;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    pointer-events: none;
+}
+
+.visio-room__overlay-item {
+    min-width: 0;
+    padding: 0.7rem 0.85rem;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    backdrop-filter: blur(8px);
+    display: grid;
+    gap: 0.15rem;
+}
+
+.visio-room__overlay-item strong {
+    font-size: 0.85rem;
+}
+
+.visio-room__overlay-item span {
+    font-size: 0.78rem;
+    opacity: 0.92;
+}
+
 .visio-room__video {
     width: 100%;
     height: 100%;
@@ -1653,6 +1698,53 @@ body {
 .visio-room__controls {
     display: grid;
     gap: 0.75rem;
+}
+
+.visio-room__chat {
+    display: grid;
+    gap: 0.65rem;
+    padding: 0.9rem;
+    border-radius: 16px;
+    background: rgba(46, 63, 95, 0.06);
+}
+
+.visio-room__chat[hidden] {
+    display: none;
+}
+
+.visio-room__chat-log {
+    min-height: 140px;
+    padding: 0.75rem;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(31, 46, 68, 0.08);
+    color: var(--color-blue-light);
+    overflow: auto;
+}
+
+.visio-room__chat-entry {
+    padding: 0.45rem 0.6rem;
+    border-radius: 10px;
+    background: rgba(46, 63, 95, 0.06);
+}
+
+.visio-room__chat-entry strong {
+    color: var(--color-navy-dark);
+}
+
+.visio-room__chat-form {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.5rem;
+}
+
+.visio-room__chat-form input {
+    width: 100%;
+    border: 1px solid rgba(46, 63, 95, 0.16);
+    border-radius: 12px;
+    padding: 0.7rem 0.85rem;
+    font-family: var(--font-montserrat);
+    font-size: 0.94rem;
 }
 
 .visio-room__controls .btn-primary,
@@ -1721,6 +1813,14 @@ body {
     .visio-room__stage,
     .visio-room__video {
         min-height: 360px;
+    }
+
+    .visio-room__overlay {
+        flex-direction: column;
+    }
+
+    .visio-room__chat-form {
+        grid-template-columns: 1fr;
     }
 }
 .learn-more-btn {

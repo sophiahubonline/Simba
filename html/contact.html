@@ -93,7 +93,7 @@
                     if (typeof window.showAuthModal === 'function') {
                         window.showAuthModal('login');
                     } else {
-                        window.alert('Please log in to send a private message.');
+                        window.alert((window.SimbaI18n && typeof window.SimbaI18n.getTranslation === 'function') ? window.SimbaI18n.getTranslation('pages.legal.contactFallback', 'Please log in to send a private message.') : 'Please log in to send a private message.');
                     }
                     return;
                 }

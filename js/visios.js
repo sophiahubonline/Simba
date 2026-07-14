@@ -59,6 +59,7 @@
         nextMeeting.startsAt = nextMeeting.startsAt || new Date().toISOString();
         nextMeeting.createdAt = nextMeeting.createdAt || new Date().toISOString();
         nextMeeting.updatedAt = nextMeeting.updatedAt || nextMeeting.createdAt;
+        nextMeeting.meetingType = nextMeeting.meetingType === 'group' ? 'group' : 'private';
         return nextMeeting;
     }
 
@@ -141,13 +142,14 @@
         return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
     }
 
-    function createMeetingFromForm(form) {
+    function createMeetingFromForm(form, options = {}) {
+        const forcedVisibility = options.visibility === 'private' ? 'private' : options.visibility === 'public' ? 'public' : '';
         const title = String(form.querySelector('#visioTitle')?.value || '').trim();
         const description = String(form.querySelector('#visioDescription')?.value || '').trim();
         const date = String(form.querySelector('#visioDate')?.value || '').trim();
         const time = String(form.querySelector('#visioTime')?.value || '').trim();
         const durationMinutes = Number(form.querySelector('#visioDuration')?.value || 45);
-        const visibility = String(form.querySelector('#visioVisibility')?.value || 'public');
+        const visibility = forcedVisibility || String(form.querySelector('#visioVisibility')?.value || 'public');
         const inviteesRaw = String(form.querySelector('#visioInvitees')?.value || '').trim();
         const invitees = inviteesRaw ? inviteesRaw.split(',').map(normalizeEmail).filter(Boolean) : [];
 
@@ -168,6 +170,7 @@
             durationMinutes,
             visibility,
             invitees,
+            meetingType: options.meetingType || (visibility === 'private' ? 'private' : 'group'),
             createdBy: current ? current.email : '',
             createdByRole: current ? current.role || 'user' : 'user'
         });
@@ -235,7 +238,9 @@
                             <div class="visio-day__meetings">
                                 ${day.meetings.slice(0, 3).map((meeting) => {
                                     const state = getMeetingState(meeting).state;
-                                    const badge = meeting.visibility === 'private' ? t('visios.privateMeeting', 'Private meeting') : t('visios.publicMeeting', 'Public meeting');
+                                    const badge = meeting.visibility === 'private'
+                                        ? t('visios.privateMeeting', 'Private meeting')
+                                        : t('visios.publicMeeting', 'Public meeting');
                                     return `<button type="button" class="visio-day__meeting is-${state}" data-open-visio="${meeting.id}"><strong>${meeting.title}</strong><small>${badge}</small></button>`;
                                 }).join('')}
                                 ${day.meetings.length > 3 ? `<span class="visio-day__more">+${day.meetings.length - 3}</span>` : ''}
@@ -268,6 +273,9 @@
             const visibilityLabel = meeting.visibility === 'private'
                 ? t('visios.privateMeeting', 'Private meeting')
                 : t('visios.publicMeeting', 'Public meeting');
+            const meetingTypeLabel = meeting.meetingType === 'group'
+                ? t('visios.groupMeeting', 'Group visio')
+                : t('visios.privateAppointment', 'Private appointment');
             const privateNote = meeting.visibility === 'private' ? `<p class="visio-card__note">${t('visios.onlyGuests', 'Private slot. Only invited people can see it.')}</p>` : '';
             const invitedLabel = meeting.visibility === 'private' && meeting.invitees.length
                 ? `<p class="visio-card__invitees"><strong>${t('visios.inviteesLabel', 'Invited emails')}:</strong> ${meeting.invitees.map((email) => `<span>${email}</span>`).join(', ')}</p>`
@@ -279,6 +287,7 @@
                     <div class="visio-card__top">
                         <div>
                             <span class="visio-chip">${visibilityLabel}</span>
+                            <span class="visio-chip visio-chip--secondary">${meetingTypeLabel}</span>
                             <h3>${meeting.title}</h3>
                         </div>
                         ${deleteButton}
@@ -324,8 +333,8 @@
                     <label>
                         ${t('visios.visibilityLabel', 'Visibility')}
                         <select id="visioVisibility">
-                            <option value="public">${t('visios.publicOption', 'Public')}</option>
-                            <option value="private">${t('visios.privateOption', 'Private')}</option>
+                            <option value="public">${t('visios.publicOption', 'Public collective')}</option>
+                            <option value="private">${t('visios.privateOption', 'Private appointment')}</option>
                         </select>
                     </label>
                     <label>
@@ -386,7 +395,7 @@
                 if (message) {
                     message.textContent = result.reason === 'invalid-date'
                         ? t('visios.accessDenied', 'You do not have access to this visio.')
-                        : t('visios.noMeetings', 'No visio slots yet.');
+                        : t('visios.missingFields', 'Please fill in the title, date, and time.');
                 }
                 return;
             }
@@ -406,12 +415,83 @@
         const currentRole = getCurrentUserRole();
         const visibleMeetings = getVisibleMeetings(currentUser);
         const monthLabel = document.getElementById('visioMonthLabel');
+        const requestPanel = document.getElementById('visioRequestPanel');
         const calendar = document.getElementById('visioCalendar');
         const upcoming = document.getElementById('visioUpcoming');
         const adminPanel = document.getElementById('visioAdminPanel');
 
         if (monthLabel) {
             monthLabel.textContent = new Date().toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' });
+        }
+
+        if (requestPanel) {
+            requestPanel.innerHTML = `
+                <div class="visios-panel-heading">
+                    <div>
+                        <p class="visios-kicker">${t('visios.requestTitle', 'Request a visio')}</p>
+                        <h2>${t('visios.requestTitle', 'Request a visio')}</h2>
+                    </div>
+                    <span class="visio-chip">${t('visios.privateAppointment', 'Private appointment')}</span>
+                </div>
+                <p class="visios-panel__lead">${t('visios.requestBody', 'Book a private slot with an admin. Only you and admins can see it.')}</p>
+                <form id="visioRequestForm" class="visios-form visios-form--request">
+                    <div class="visios-form__grid">
+                        <label>
+                            ${t('visios.subjectLabel', 'Subject')}
+                            <input id="visioTitle" type="text" maxlength="120" placeholder="${t('visios.subjectLabel', 'Subject')}" />
+                        </label>
+                        <label>
+                            ${t('visios.dateLabel', 'Date')}
+                            <input id="visioDate" type="date" />
+                        </label>
+                        <label>
+                            ${t('visios.timeLabel', 'Time')}
+                            <input id="visioTime" type="time" />
+                        </label>
+                        <label>
+                            ${t('visios.durationLabel', 'Duration')}
+                            <select id="visioDuration">
+                                <option value="30">30 min</option>
+                                <option value="45" selected>45 min</option>
+                                <option value="60">60 min</option>
+                            </select>
+                        </label>
+                    </div>
+                    <label>
+                        ${t('visios.descriptionLabel', 'Description')}
+                        <textarea id="visioDescription" rows="4" maxlength="800" placeholder="${t('visios.requestPlaceholder', 'Explain what you want to discuss with the admin.')}"></textarea>
+                    </label>
+                    <div class="visios-form__footer">
+                        <span id="visioRequestMessage" class="visios-form__message"></span>
+                        <button type="submit" class="btn-primary">${t('visios.requestMeeting', 'Request private slot')}</button>
+                    </div>
+                </form>
+            `;
+
+            const requestForm = requestPanel.querySelector('#visioRequestForm');
+            const requestMessage = requestPanel.querySelector('#visioRequestMessage');
+            const requestDate = requestPanel.querySelector('#visioDate');
+            const requestTime = requestPanel.querySelector('#visioTime');
+            const requestNow = new Date();
+            requestNow.setMinutes(requestNow.getMinutes() + 30);
+            if (requestDate) requestDate.value = requestNow.toISOString().slice(0, 10);
+            if (requestTime) requestTime.value = requestNow.toISOString().slice(11, 16);
+
+            requestForm?.addEventListener('submit', (event) => {
+                event.preventDefault();
+                const result = createMeetingFromForm(requestForm, { visibility: 'private', meetingType: 'private' });
+                if (!result.ok) {
+                    if (requestMessage) {
+                        requestMessage.textContent = result.reason === 'invalid-date'
+                            ? t('visios.invalidDate', 'Invalid date or time.')
+                            : t('visios.missingFields', 'Please fill in the title, date, and time.');
+                    }
+                    return;
+                }
+
+                if (requestMessage) requestMessage.textContent = t('visios.requestCreated', 'Request created.');
+                renderVisiosPage();
+            });
         }
 
         renderCalendarGrid(calendar, visibleMeetings);
@@ -497,6 +577,16 @@
                 <div class="visio-room__body">
                     <div class="visio-room__stage">
                         <video id="visioLocalVideo" class="visio-room__video" autoplay playsinline muted></video>
+                        <div class="visio-room__overlay">
+                            <div class="visio-room__overlay-item">
+                                <strong>${t('visios.roomTitle', 'Visio room')}</strong>
+                                <span>${meeting.meetingType === 'group' ? t('visios.groupMeeting', 'Group visio') : t('visios.privateAppointment', 'Private appointment')}</span>
+                            </div>
+                            <div class="visio-room__overlay-item">
+                                <strong>${t('visios.participantsLabel', 'Participants')}</strong>
+                                <span>${meeting.visibility === 'private' ? Math.max(1, invitees.length + 1) : t('visios.publicRoom', 'Public room')}</span>
+                            </div>
+                        </div>
                         <div class="visio-room__video-hint">${t('visios.waitingMedia', 'Enable your camera or microphone to join the call.')}</div>
                     </div>
                     <aside class="visio-room__panel">
@@ -508,12 +598,23 @@
                             <button id="visioJoinBtn" class="btn-primary" type="button" ${isLive ? '' : 'disabled'}>${isLive ? t('visios.joinRoom', 'Join room') : t('visios.waitForStart', 'Starts in {time}').replace('{time}', formatRelativeTime(state.start - Date.now()))}</button>
                             <button id="visioCameraBtn" class="btn-edit" type="button" disabled>${t('visios.startCamera', 'Turn on camera')}</button>
                             <button id="visioMicBtn" class="btn-edit" type="button" disabled>${t('visios.startMic', 'Turn on microphone')}</button>
+                            <button id="visioShareBtn" class="btn-edit" type="button" disabled>${t('visios.shareScreen', 'Share screen')}</button>
+                            <button id="visioChatBtn" class="btn-edit" type="button">${t('visios.openChat', 'Open chat')}</button>
                             <button id="visioLeaveBtn" class="btn-edit" type="button" disabled>${t('visios.leaveCall', 'Leave call')}</button>
                             <a class="btn-link visio-room__back" href="visios.html">${t('visios.backToCalendar', 'Back to calendar')}</a>
                         </div>
                         <div class="visio-room__details">
                             <p><strong>${t('visios.visibilityLabel', 'Visibility')}:</strong> ${isPrivate ? t('visios.privateMeeting', 'Private meeting') : t('visios.publicMeeting', 'Public meeting')}</p>
                             ${invitees.length ? `<p><strong>${t('visios.inviteesLabel', 'Invited emails')}:</strong> ${invitees.join(', ')}</p>` : ''}
+                        </div>
+                        <div class="visio-room__chat" hidden>
+                            <div class="visio-room__chat-log" aria-live="polite">
+                                <div class="visio-room__chat-entry"><strong>${t('visios.roomTitle', 'Visio room')}</strong> ${t('visios.chatIntro', 'Chat is local to this browser session for now.')}</div>
+                            </div>
+                            <form class="visio-room__chat-form">
+                                <input id="visioChatInput" type="text" maxlength="240" placeholder="${t('visios.chatPlaceholder', 'Write a message')}" />
+                                <button type="submit" class="btn-primary">${t('visios.sendMessage', 'Send')}</button>
+                            </form>
                         </div>
                     </aside>
                 </div>
@@ -524,10 +625,17 @@
         const joinBtn = root.querySelector('#visioJoinBtn');
         const cameraBtn = root.querySelector('#visioCameraBtn');
         const micBtn = root.querySelector('#visioMicBtn');
+        const shareBtn = root.querySelector('#visioShareBtn');
+        const chatBtn = root.querySelector('#visioChatBtn');
         const leaveBtn = root.querySelector('#visioLeaveBtn');
         const videoHint = root.querySelector('.visio-room__video-hint');
+        const chatBox = root.querySelector('.visio-room__chat');
+        const chatLog = root.querySelector('.visio-room__chat-log');
+        const chatForm = root.querySelector('.visio-room__chat-form');
+        const chatInput = root.querySelector('#visioChatInput');
         let cameraEnabled = false;
         let micEnabled = false;
+        let screenStream = null;
 
         async function startMedia() {
             if (localStream) return localStream;
@@ -543,6 +651,7 @@
             if (cameraBtn) cameraBtn.disabled = false;
             if (micBtn) micBtn.disabled = false;
             if (leaveBtn) leaveBtn.disabled = false;
+            if (shareBtn) shareBtn.disabled = false;
             if (videoHint) videoHint.hidden = true;
             return localStream;
         }
@@ -560,6 +669,7 @@
             if (cameraBtn) cameraBtn.disabled = true;
             if (micBtn) micBtn.disabled = true;
             if (leaveBtn) leaveBtn.disabled = true;
+            if (shareBtn) shareBtn.disabled = true;
             if (videoHint) videoHint.hidden = false;
         }
 
@@ -579,6 +689,45 @@
             }
         }
 
+        async function startScreenShare() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+                window.alert(t('visios.shareUnavailable', 'Screen sharing is not available in this browser.'));
+                return;
+            }
+            try {
+                screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+                const screenVideo = document.createElement('video');
+                screenVideo.autoplay = true;
+                screenVideo.playsInline = true;
+                screenVideo.muted = true;
+                screenVideo.srcObject = screenStream;
+                if (videoHint) videoHint.textContent = t('visios.sharingScreen', 'You are sharing your screen.');
+                screenStream.getVideoTracks()[0]?.addEventListener('ended', () => {
+                    screenStream = null;
+                    if (videoHint) videoHint.textContent = t('visios.waitingMedia', 'Enable your camera or microphone to join the call.');
+                });
+            } catch (error) {
+                window.alert(t('visios.shareUnavailable', 'Screen sharing is not available in this browser.'));
+            }
+        }
+
+        function toggleChat() {
+            if (!chatBox) return;
+            chatBox.hidden = !chatBox.hidden;
+        }
+
+        chatForm?.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const text = String(chatInput?.value || '').trim();
+            if (!text || !chatLog) return;
+            const entry = document.createElement('div');
+            entry.className = 'visio-room__chat-entry';
+            entry.innerHTML = `<strong>${normalizeEmail(currentEmail) || t('visios.youLabel', 'You')}:</strong> ${text}`;
+            chatLog.appendChild(entry);
+            if (chatInput) chatInput.value = '';
+            chatLog.scrollTop = chatLog.scrollHeight;
+        });
+
         joinBtn?.addEventListener('click', async () => {
             try {
                 await startMedia();
@@ -590,13 +739,23 @@
 
         cameraBtn?.addEventListener('click', () => toggleTrack('video'));
         micBtn?.addEventListener('click', () => toggleTrack('audio'));
+        shareBtn?.addEventListener('click', () => startScreenShare());
+        chatBtn?.addEventListener('click', () => toggleChat());
         leaveBtn?.addEventListener('click', () => {
             stopMedia();
+            if (screenStream) {
+                screenStream.getTracks().forEach((track) => track.stop());
+                screenStream = null;
+            }
             if (joinBtn) joinBtn.disabled = !isLive;
         });
 
         if (!isLive) {
             if (joinBtn) joinBtn.disabled = true;
+        }
+
+        if (chatBox && currentRole !== 'admin' && !isPrivate) {
+            chatBox.hidden = false;
         }
 
         window.addEventListener('beforeunload', stopMedia);
