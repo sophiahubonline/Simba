@@ -9,6 +9,7 @@ const fs = require('fs').promises;
 const usersFile = path.join(__dirname, 'users.json');
 const forumThreadsFile = path.join(__dirname, 'forum-threads.json');
 const privateMessagesFile = path.join(__dirname, 'private-messages.json');
+const themeVisibilityFile = path.join(__dirname, 'theme-visibility.json');
 
 const SERVER_ADMIN_EMAIL = 'createwithus@simbajourney.com';
 
@@ -309,6 +310,30 @@ app.post('/api/private-messages', async (req, res) => {
 
     await writeJsonFile(privateMessagesFile, nextThreads.slice(0, 200));
     return res.json({ ok: true, threads: nextThreads });
+  });
+});
+
+app.get('/api/theme-visibility', async (req, res) => {
+  const visibility = await readJsonFile(themeVisibilityFile, {});
+  return res.json({ visibility: visibility && typeof visibility === 'object' ? visibility : {} });
+});
+
+app.post('/api/theme-visibility', async (req, res) => {
+  const token = req.cookies && req.cookies.token;
+  if (!token) return res.status(401).json({ error: 'Not authenticated' });
+
+  jwt.verify(token, JWT_SECRET, async (err, payload) => {
+    if (err) return res.status(401).json({ error: 'Invalid token' });
+    if (!isAdminEmail(payload.email)) return res.status(403).json({ error: 'Forbidden' });
+
+    const incoming = req.body && typeof req.body.visibility === 'object' ? req.body.visibility : {};
+    const nextVisibility = Object.keys(incoming).reduce((accumulator, key) => {
+      accumulator[key] = incoming[key] !== false;
+      return accumulator;
+    }, {});
+
+    await writeJsonFile(themeVisibilityFile, nextVisibility);
+    return res.json({ ok: true, visibility: nextVisibility });
   });
 });
 

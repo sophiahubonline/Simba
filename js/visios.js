@@ -1,5 +1,7 @@
 (function() {
     const STORAGE_KEY = 'simba_visio_meetings';
+    let visioMonthCursor = new Date();
+    visioMonthCursor.setDate(1);
     const t = (key, fallback = '') => (window.SimbaI18n && typeof window.SimbaI18n.getTranslation === 'function') ? window.SimbaI18n.getTranslation(key, fallback) : fallback;
     const getLocale = () => (window.SimbaI18n && typeof window.SimbaI18n.getLocale === 'function') ? window.SimbaI18n.getLocale(window.SimbaI18n.getCurrentLanguage()) : 'en-US';
 
@@ -142,6 +144,24 @@
         return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
     }
 
+    function normalizeMonthCursor(value) {
+        const date = value instanceof Date ? new Date(value) : new Date(value || Date.now());
+        if (Number.isNaN(date.getTime())) {
+            const fallback = new Date();
+            return new Date(fallback.getFullYear(), fallback.getMonth(), 1);
+        }
+        return new Date(date.getFullYear(), date.getMonth(), 1);
+    }
+
+    function getMonthLabel(value) {
+        const date = normalizeMonthCursor(value);
+        try {
+            return date.toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' });
+        } catch (error) {
+            return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        }
+    }
+
     function createMeetingFromForm(form, options = {}) {
         const forcedVisibility = options.visibility === 'private' ? 'private' : options.visibility === 'public' ? 'public' : '';
         const title = String(form.querySelector('#visioTitle')?.value || '').trim();
@@ -199,9 +219,9 @@
         window.location.href = `visio-room.html?id=${encodeURIComponent(meetingId)}`;
     }
 
-    function renderCalendarGrid(container, meetings) {
+    function renderCalendarGrid(container, meetings, monthCursor) {
         if (!container) return;
-        const now = new Date();
+        const now = normalizeMonthCursor(monthCursor);
         const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
         const gridStart = new Date(firstDay);
         const startOffset = (gridStart.getDay() + 6) % 7;
@@ -226,7 +246,7 @@
                 const dayMeetings = meetings.filter((meeting) => toDateKey(meeting.startsAt) === key);
                 days.push({
                     date: new Date(cursor),
-                    currentMonth: cursor.getMonth() === now.getMonth(),
+                    currentMonth: cursor.getMonth() === now.getMonth() && cursor.getFullYear() === now.getFullYear(),
                     meetings: dayMeetings
                 });
                 cursor.setDate(cursor.getDate() + 1);
@@ -315,6 +335,10 @@
                 </article>
             `;
         }).join('');
+    }
+
+    function getUpcomingMeetings(meetings) {
+        return meetings.filter((meeting) => getMeetingState(meeting).state !== 'ended');
     }
 
     function renderAdminForm(container, currentUser) {
@@ -422,14 +446,27 @@
         const currentUser = getCurrentSessionUser();
         const currentRole = getCurrentUserRole();
         const visibleMeetings = getVisibleMeetings(currentUser);
+        const upcomingMeetings = getUpcomingMeetings(visibleMeetings);
         const monthLabel = document.getElementById('visioMonthLabel');
+        const prevMonthButton = document.getElementById('visioPrevMonth');
+        const nextMonthButton = document.getElementById('visioNextMonth');
         const requestPanel = document.getElementById('visioRequestPanel');
         const calendar = document.getElementById('visioCalendar');
         const upcoming = document.getElementById('visioUpcoming');
         const adminPanel = document.getElementById('visioAdminPanel');
 
         if (monthLabel) {
-            monthLabel.textContent = new Date().toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' });
+            monthLabel.textContent = getMonthLabel(visioMonthCursor);
+        }
+
+        if (prevMonthButton) {
+            prevMonthButton.title = t('visios.prevMonth', 'Previous month');
+            prevMonthButton.setAttribute('aria-label', t('visios.prevMonth', 'Previous month'));
+        }
+
+        if (nextMonthButton) {
+            nextMonthButton.title = t('visios.nextMonth', 'Next month');
+            nextMonthButton.setAttribute('aria-label', t('visios.nextMonth', 'Next month'));
         }
 
         if (requestPanel) {
@@ -502,9 +539,23 @@
             });
         }
 
-        renderCalendarGrid(calendar, visibleMeetings);
-        renderMeetingCards(upcoming, visibleMeetings, currentUser);
+        renderCalendarGrid(calendar, visibleMeetings, visioMonthCursor);
+        renderMeetingCards(upcoming, upcomingMeetings, currentUser);
         renderAdminForm(adminPanel, currentUser);
+
+        if (prevMonthButton) {
+            prevMonthButton.onclick = () => {
+                visioMonthCursor = new Date(visioMonthCursor.getFullYear(), visioMonthCursor.getMonth() - 1, 1);
+                renderVisiosPage();
+            };
+        }
+
+        if (nextMonthButton) {
+            nextMonthButton.onclick = () => {
+                visioMonthCursor = new Date(visioMonthCursor.getFullYear(), visioMonthCursor.getMonth() + 1, 1);
+                renderVisiosPage();
+            };
+        }
 
         root.querySelectorAll('[data-open-visio]').forEach((button) => {
             button.addEventListener('click', function() {

@@ -36,14 +36,14 @@
                 <div id="messages_name" class="profile-name">Messages</div>
                 <div id="messages_bio" class="profile-bio">Private conversations and admin inbox.</div>
                 <div class="profile-actions">
+                    <button id="messages_back_btn" class="btn-edit" type="button" data-i18n="messages.back">Back</button>
                     <button id="messages_refresh_btn" class="btn-edit" type="button" data-i18n="messages.refresh">Refresh</button>
                 </div>
                 <div class="profile-section">
                     <div id="messages_overview_label" style="font-weight:700;color:var(--color-navy);margin-bottom:6px" data-i18n="messages.overview">Overview</div>
                     <div class="profile-grid">
-                        <div class="profile-stat"><h4 data-i18n="messages.threads">Threads</h4><div id="messages_thread_count">0</div></div>
+                        <div class="profile-stat"><h4 data-i18n="messages.conversationsLabel">Conversations</h4><div id="messages_thread_count">0</div></div>
                         <div class="profile-stat"><h4 data-i18n="messages.unread">Unread</h4><div id="messages_unread_count">0</div></div>
-                        <div class="profile-stat"><h4 data-i18n="messages.testsDone">Tests done</h4><div id="messages_tests_count">0</div></div>
                     </div>
                 </div>
             </aside>
@@ -85,8 +85,8 @@
         </div>
     </footer>
 
-    <script src="../js/i18n.js"></script>
-    <script src="../js/script.js"></script>
+    <script src="../js/i18n.js?v=20260715"></script>
+    <script src="../js/script.js?v=20260715"></script>
     <script>
         const t = (key, fallback = '') => (window.SimbaI18n && typeof window.SimbaI18n.getTranslation === 'function') ? window.SimbaI18n.getTranslation(key, fallback) : fallback;
         const getLocale = () => (window.SimbaI18n && typeof window.SimbaI18n.getLocale === 'function') ? window.SimbaI18n.getLocale(window.SimbaI18n.getCurrentLanguage()) : 'en-US';
@@ -141,21 +141,16 @@
             return (profile && profile.avatar) || '../content/img/profil.png';
         }
 
-        function getTestsDoneForEmail(email) {
-            const profile = getStoredProfile(email);
-            return Array.isArray(profile && profile.scores) ? profile.scores.length : 0;
-        }
-
         function translateMessagesPage() {
             document.title = t('messages.title', 'Messages - SIMBA PROJECT');
             const avatar = document.getElementById('messages_avatar');
             const name = document.getElementById('messages_name');
             const bio = document.getElementById('messages_bio');
+            const backButton = document.getElementById('messages_back_btn');
             const refresh = document.getElementById('messages_refresh_btn');
             const overview = document.getElementById('messages_overview_label');
             const threadsLabel = document.querySelector('#messages_thread_count')?.closest('.profile-stat')?.querySelector('h4');
             const unreadLabel = document.querySelector('#messages_unread_count')?.closest('.profile-stat')?.querySelector('h4');
-            const testsLabel = document.querySelector('#messages_tests_count')?.closest('.profile-stat')?.querySelector('h4');
             const heading = document.getElementById('messages_heading');
             const hint = document.getElementById('messages_hint');
             const input = document.getElementById('messages_input');
@@ -164,11 +159,11 @@
             if (avatar) avatar.alt = t('messages.pageTitle', 'Messages');
             if (name) name.textContent = t('messages.pageTitle', 'Messages');
             if (bio) bio.textContent = t('messages.sidebarBody', 'Private conversations and admin inbox.');
+            if (backButton) backButton.textContent = t('messages.back', 'Back');
             if (refresh) refresh.textContent = t('messages.refresh', 'Refresh');
             if (overview) overview.textContent = t('messages.overview', 'Overview');
-            if (threadsLabel) threadsLabel.textContent = t('messages.threads', 'Threads');
+            if (threadsLabel) threadsLabel.textContent = t('messages.conversationsLabel', 'Conversations');
             if (unreadLabel) unreadLabel.textContent = t('messages.unread', 'Unread');
-            if (testsLabel) testsLabel.textContent = t('messages.testsDone', 'Tests done');
             if (heading) heading.textContent = t('messages.heading', 'Messages');
             if (hint) hint.textContent = t('messages.hint', 'Open a private conversation and reply without posting publicly.');
             if (input) input.placeholder = t('messages.writePrivateMessage', 'Write a private message...');
@@ -367,14 +362,12 @@
             const bio = document.getElementById('messages_bio');
             const threadCount = document.getElementById('messages_thread_count');
             const unreadCount = document.getElementById('messages_unread_count');
-            const testsCount = document.getElementById('messages_tests_count');
 
             if (!header || !body || !input || !sendButton || !status || !hint) return;
 
             const visibleThreads = getVisibleThreads();
             if (threadCount) threadCount.textContent = String(visibleThreads.length);
             if (unreadCount) unreadCount.textContent = '0';
-            if (testsCount) testsCount.textContent = String(getTestsDoneForEmail(currentUserEmail));
             if (avatar) avatar.src = getAvatarForEmail(currentUserEmail);
             if (name) name.textContent = currentUserRole === 'admin' ? t('messages.adminInbox', 'Admin inbox') : (getStoredProfile(currentUserEmail).name || currentUserEmail || t('messages.pageTitle', 'Messages'));
             if (bio) bio.textContent = currentUserRole === 'admin' ? t('messages.choosePerson', 'Choose a person to see the discussion.') : t('messages.directToAdmins', 'Private conversation with the admin.');
@@ -478,6 +471,26 @@
 
         document.getElementById('messages_refresh_btn')?.addEventListener('click', function() {
             window.location.reload();
+        });
+
+        document.getElementById('messages_back_btn')?.addEventListener('click', function() {
+            const url = new URL(window.location.href);
+            const returnUser = url.searchParams.get('user');
+            if (returnUser) {
+                const profileUrl = new URL(window.location.href);
+                profileUrl.pathname = profileUrl.pathname.replace(/messages\.html$/i, 'profile.html');
+                profileUrl.searchParams.set('user', returnUser);
+                window.location.href = profileUrl.toString();
+                return;
+            }
+            if (window.history.length > 1) {
+                window.history.back();
+                return;
+            }
+            const fallbackUrl = new URL(window.location.href);
+            fallbackUrl.pathname = fallbackUrl.pathname.replace(/messages\.html$/i, 'profile.html');
+            fallbackUrl.searchParams.delete('user');
+            window.location.href = fallbackUrl.toString();
         });
 
         document.getElementById('messages_thread_list')?.addEventListener('click', function(event) {

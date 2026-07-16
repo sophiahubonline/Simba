@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mental Load - SIMBA PROJECT</title>
     <link rel="stylesheet" href="../css/style.css">
+    <link rel="icon" type="image/png" href="../content/img/simba.png">
     <style>
         .theme-page-header {
             background-image: url('../content/img/mental-load.png');
@@ -32,16 +33,804 @@
         </div>
     </header>
 
-    <div class="theme-page-header">
-        <h1>Mental Load</h1>
-    </div>
+    <!-- MAIN CONTAINER -->
+<main class="mental-load-page">
+    
+    <!-- CSS strict de la Charte SIMBA Project avec Graphiques Dynamiques -->
+    <style>
+        .mental-load-page {
+            /* Variables de la charte officielle SIMBA */
+            --color-cream: #E8E1D6;
+            --color-cream-light: #DDD5C6;
+            --color-orange: #C4721A;
+            --color-orange-dark: #B8651C;
+            --color-navy: #2E3F5F;
+            --color-navy-dark: #1F2E44;
+            
+            /* Variantes & Accents autorisés */
+            --color-orange-light: #D48734;
+            --color-blue-light: #405477;
+            
+            /* Styles d'interface doux */
+            --color-white-translucent: rgba(255, 255, 255, 0.90);
+            --card-shadow: 0 10px 30px rgba(31, 46, 68, 0.05), 0 1px 8px rgba(31, 46, 68, 0.02);
+            --border-glass: 1px solid rgba(255, 255, 255, 0.7);
+            --transition-smooth: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            
+            font-family: 'Montserrat', sans-serif;
+            color: var(--color-navy);
+            line-height: 1.7;
+        }
 
-    <div class="theme-page-content">
-        <h2>Understanding Mental Load</h2>
-        <p>Mental load refers to the cognitive burden of managing tasks, responsibilities, and mental processes. It includes both the effort required to remember tasks and the emotional weight of responsibility.</p>
-        <p>In today's fast-paced world, mental load has increased significantly due to constant connectivity, multitasking, and information overload. This can lead to fatigue, reduced decision-making capacity, and mental exhaustion.</p>
-        <p>Discover strategies to reduce cognitive overwhelm, prioritize effectively, delegate tasks, and restore mental clarity and focus.</p>
+        /* Application de la typographie de la charte */
+        .mental-load-page h1, 
+        .mental-load-page h2, 
+        .mental-load-page h3, 
+        .mental-load-page .title-forum {
+            font-family: 'Forum', serif;
+            color: var(--color-navy-dark);
+            font-weight: 400;
+            letter-spacing: 0.06em;
+        }
+
+        .mental-load-page .accent-orange {
+            color: var(--color-orange);
+        }
+
+        /* Hero Banner - Ambiance voyage initiatique */
+        .theme-hero {
+            height: 500px;
+            position: relative;
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .theme-hero-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to bottom, rgba(31, 46, 68, 0.75) 0%, rgba(31, 46, 68, 0.9) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .hero-title-forum {
+            font-size: clamp(2.8rem, 5.5vw, 4.2rem);
+            color: var(--color-cream);
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .hero-subtitle {
+            font-family: 'Montserrat', sans-serif;
+            color: var(--color-cream-light);
+            font-size: clamp(0.95rem, 1.8vw, 1.15rem);
+            text-transform: lowercase;
+            letter-spacing: 0.15em;
+        }
+
+        /* Conteneur principal */
+        .theme-content-container {
+            max-width: 1000px;
+            margin: -90px auto 80px auto;
+            position: relative;
+            z-index: 10;
+            padding: 0 24px;
+        }
+
+        /* Cartes translucides - Glassmorphism épuré */
+        .card-translucent {
+            background: var(--color-white-translucent);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: var(--border-glass);
+            border-radius: 24px;
+            padding: 44px;
+            box-shadow: var(--card-shadow);
+            margin-bottom: 36px;
+            transition: var(--transition-smooth);
+        }
+
+        .card-translucent:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(31, 46, 68, 0.08);
+        }
+
+        /* Styles d'images intégrées */
+        .content-image {
+            width: 100%;
+            height: 380px;
+            border-radius: 16px;
+            object-fit: cover;
+            margin: 24px 0;
+            box-shadow: 0 8px 24px rgba(31, 46, 68, 0.1);
+            transition: var(--transition-smooth);
+        }
+
+        .content-image:hover {
+            transform: scale(1.01);
+        }
+
+        /* Section Introduction */
+        .intro-section h2 {
+            font-size: 2.6rem;
+            margin-bottom: 24px;
+        }
+
+        .text-lead {
+            font-size: 1.15rem;
+            line-height: 1.85;
+            color: var(--color-navy-dark);
+            margin-bottom: 28px;
+        }
+
+        /* Citation stylisée aux couleurs de la charte */
+        .quote-box {
+            border-left: 3px solid var(--color-orange);
+            padding-left: 28px;
+            margin: 36px 0;
+            font-size: 1.25rem;
+            color: var(--color-navy-dark);
+            font-style: italic;
+        }
+
+        .section-title {
+            font-size: 2.4rem;
+            margin: 72px 0 16px 0;
+            text-align: center;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            color: var(--color-blue-light);
+            margin-bottom: 44px;
+            font-size: 1.05rem;
+            font-weight: 500;
+        }
+
+        /* Grille d'analyses scientifiques */
+        .grid-scientific {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+            gap: 28px;
+            margin-bottom: 36px;
+        }
+
+        @media (max-width: 768px) {
+            .grid-scientific {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Badge d'accentuation */
+        .step-badge {
+            display: inline-block;
+            background: var(--color-cream-light);
+            color: var(--color-navy-dark);
+            font-weight: 700;
+            font-size: 13px;
+            padding: 5px 14px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(31, 46, 68, 0.1);
+        }
+
+        .card-subtitle-montserrat {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+            font-size: 1.15rem;
+            color: var(--color-navy-dark);
+            margin-bottom: 14px;
+        }
+
+        /* Risques systémiques */
+        .risk-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(232, 225, 214, 0.4) 100%);
+        }
+
+        .warning-border-left {
+            border-left: 4px solid var(--color-orange-dark);
+        }
+
+        .styled-list {
+            list-style: none;
+            margin-top: 24px;
+        }
+
+        .styled-list li {
+            position: relative;
+            padding-left: 32px;
+            margin-bottom: 18px;
+        }
+
+        .styled-list li::before {
+            content: "•";
+            color: var(--color-orange);
+            font-size: 2rem;
+            position: absolute;
+            left: 10px;
+            top: -6px;
+        }
+
+        /* ==========================================================================
+           COMPOSANTS GRAPHIQUES (Pour les statistiques)
+           ========================================================================== */
+        .stats-dashboard {
+            background: var(--color-navy-dark);
+            color: var(--color-cream);
+        }
+
+        .stats-dashboard h2 {
+            color: var(--color-cream);
+            font-size: 2.4rem;
+            margin-bottom: 36px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 40px;
+            text-align: center;
+            margin-bottom: 44px;
+            align-items: start;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Graphique Circulaire CSS */
+        .circle-chart {
+            position: relative;
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Jauge 75% */
+        .circle-chart.percent-75 {
+            background: conic-gradient(var(--color-orange) 75%, rgba(232, 225, 214, 0.1) 0);
+        }
+
+        /* Jauge 54% (VS 22%) */
+        .circle-chart.percent-54 {
+            background: conic-gradient(var(--color-orange) 54%, var(--color-blue-light) 54% 76%, rgba(232, 225, 214, 0.1) 0);
+        }
+
+        /* Centre vide du graphique circulaire */
+        .circle-inner {
+            width: 110px;
+            height: 110px;
+            background: var(--color-navy-dark);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Visualisation d'Heures en barre linéaire */
+        .hour-gauge-container {
+            width: 100%;
+            max-width: 200px;
+            height: 140px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .bar-gauge {
+            width: 100%;
+            height: 16px;
+            background: rgba(232, 225, 214, 0.15);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--color-orange-light), var(--color-orange));
+            border-radius: 10px;
+            width: 98%; /* 98h sur base d'un équivalent max estimé */
+        }
+
+        .stat-number {
+            font-family: 'Forum', serif;
+            font-size: 2.2rem;
+            color: var(--color-cream);
+            line-height: 1;
+        }
+
+        .stat-subtext {
+            font-size: 0.8rem;
+            color: var(--color-orange-light);
+            font-weight: 700;
+            margin-top: 2px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--color-cream-light);
+            line-height: 1.6;
+            margin-top: 8px;
+        }
+
+        .stats-footer-note {
+            border-top: 1px solid rgba(232, 225, 214, 0.15);
+            padding-top: 28px;
+            font-size: 0.95rem;
+            text-align: center;
+            color: var(--color-cream-light);
+        }
+
+        /* Graphique de comparaison pour le footer-note (Barres comparatives horizontales) */
+        .comparison-bars {
+            max-width: 600px;
+            margin: 24px auto 0 auto;
+            text-align: left;
+        }
+
+        .comp-bar-item {
+            margin-bottom: 12px;
+        }
+
+        .comp-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 4px;
+        }
+
+        .comp-track {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .comp-fill {
+            height: 100%;
+            border-radius: 4px;
+        }
+
+        /* Symptômes */
+        .symptom-card {
+            border-left: 3px solid transparent;
+            transition: var(--transition-smooth);
+        }
+
+        .symptom-card:hover {
+            border-left-color: var(--color-orange);
+        }
+
+        .symptom-title {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: var(--color-navy-dark);
+            margin-bottom: 10px;
+        }
+
+        /* Double Colonne Solutions (Individuel vs Collaboratif) */
+        .grid-solutions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 36px;
+            margin-top: 56px;
+        }
+
+        @media (max-width: 900px) {
+            .grid-solutions {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .solution-column {
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+        }
+
+        .solution-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        /* Étiquettes / Tags (Charte point 4) */
+        .badge-tag {
+            font-size: 11px;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            padding: 5px 12px;
+            border-radius: 8px;
+        }
+
+        .tag-orange {
+            background-color: var(--color-cream-light);
+            color: var(--color-orange-dark);
+            border: 1px solid rgba(184, 101, 28, 0.2);
+        }
+
+        .tag-navy {
+            background-color: var(--color-cream-light);
+            color: var(--color-blue-light);
+            border: 1px solid rgba(64, 84, 119, 0.2);
+        }
+
+        .solution-steps {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .solution-steps li strong {
+            display: block;
+            font-size: 1.05rem;
+            color: var(--color-navy-dark);
+            margin-bottom: 6px;
+        }
+
+        .solution-steps li p {
+            font-size: 0.95rem;
+            color: var(--color-navy);
+        }
+
+        /* Boutons d'Action (Charte point 4 : CTA Orange) */
+        .btn {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 14px 28px;
+            border-radius: 30px;
+            border: none;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-orange {
+            background: var(--color-orange);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(196, 114, 26, 0.25);
+        }
+
+        .btn-orange:hover {
+            transform: translateY(-2px);
+            background: var(--color-orange-dark);
+            box-shadow: 0 6px 20px rgba(184, 101, 28, 0.35);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--color-navy-dark);
+            color: var(--color-navy-dark);
+        }
+
+        .btn-outline:hover {
+            background: var(--color-navy-dark);
+            color: var(--color-cream);
+            transform: translateY(-2px);
+        }
+
+        /* Appel à l'action final */
+        .cta-practice-board {
+            text-align: center;
+            padding: 64px 44px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(221, 213, 198, 0.3) 100%);
+            margin-top: 72px;
+        }
+
+        .cta-practice-board h3 {
+            font-size: 2.4rem;
+            margin-bottom: 14px;
+        }
+
+        .cta-practice-board p {
+            font-size: 1.1rem;
+            margin-bottom: 36px;
+            color: var(--color-navy);
+        }
+
+        .cta-actions {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        @media (max-width: 600px) {
+            .cta-actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+
+    <!-- HERO BANNER -->
+    <section class="theme-hero" style="background-image: url('../content/img/hero-mental-load.png');">
+        <div class="theme-hero-overlay">
+            <div class="hero-content-center">
+                <h1 class="hero-title-forum">Mental Load</h1>
+                <p class="hero-subtitle">The invisible marathon of daily life</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- CONTAINER CENTRAL -->
+    <div class="theme-content-container">
+
+        <!-- INTRO -->
+        <section class="card-translucent intro-section">
+            <h2 class="title-forum">What is <span class="accent-orange">Mental Load</span>?</h2>
+            
+            <!-- Illustration de la surcharge mentale globale -->
+            <img src="../content/img/mental-overload-intro.png" alt="Person experiencing cognitive overload" class="content-image">
+
+            <p class="text-lead">
+                From a scientific and medical perspective, the mental load is not classified as a single official disease, but rather as a state of chronic cognitive and emotional overload that triggers systemic, long-term stress responses in the brain and body.
+            </p>
+            <div class="quote-box">
+                <p>“While acute stress functions like a sprint—with a clear alarm, resistance, and recovery phase—the mental load operates as a marathon without a finish line.”</p>
+            </div>
+            <p>Because the invisible tasks of household and family management never truly end, the brain is denied the necessary biological recovery phase.</p>
+        </section>
+
+        <!-- SCIENTIFIC ANALYSIS -->
+        <section>
+            <h2 class="title-forum section-title">The Scientific Breakdown</h2>
+            <p class="section-subtitle">How chronic mental weight physically reshapes your systems</p>
+            
+            <div class="grid-scientific">
+                <!-- Card 1 -->
+                <div class="card-translucent">
+                    <span class="step-badge">01</span>
+                    <h3 class="card-subtitle-montserrat">Cognitive Load & "Ego Depletion"</h3>
+                    <p>According to Cognitive Load Theory, your working memory can only process about five to nine items at once. Juggling dozens of invisible tasks pushes the brain into overload, leading to forgetfulness and brain fog. Additionally, constant planning depletes your daily supply of willpower, leaving you emotionally exhausted by evening.</p>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="card-translucent">
+                    <span class="step-badge">02</span>
+                    <h3 class="card-subtitle-montserrat">Impairment of the Prefrontal Cortex</h3>
+                    <p>The prefrontal cortex acts as the brain's "CEO" and is responsible for logical decisions. Under persistent strain, this control center is overridden by impulsive, reward-driven regions. This makes it incredibly difficult to say "no" or prioritize your own self-care, locking you in a cycle of overwork.</p>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="card-translucent">
+                    <span class="step-badge">03</span>
+                    <h3 class="card-subtitle-montserrat">Amygdala & Chronic "Fight-or-Flight"</h3>
+                    <p>Because the load is relentless, it keeps your autonomic nervous system stuck in a state of hyperactivation. The brain begins to react to ordinary daily tasks (like opening an email or planning a dinner) as if they were immediate physical threats, producing a constant flood of cortisol and adrenaline.</p>
+                </div>
+
+                <!-- Card 4 -->
+                <div class="card-translucent">
+                    <span class="step-badge">04</span>
+                    <h3 class="card-subtitle-montserrat">Caregiver Neuroplasticity</h3>
+                    <p>For mothers, pregnancy alters brain circuitry to enhance threat detection, motivation, and empathy. While biologically vital to protect the infant, this adaptive wiring makes mothers hyper-vigilant and highly attuned to everyone else's needs, neurologically intensifying the mental load.</p>
+                </div>
+            </div>
+
+            <!-- Systemic Health Risks -->
+            <div class="card-translucent risk-card warning-border-left">
+                <h3 class="card-subtitle-montserrat accent-orange">Systemic Health Risks</h3>
+                <p>When the brain's stress system is permanently switched on, the body's systems suffer massive strain:</p>
+                <ul class="styled-list">
+                    <li><strong>Cardiovascular & Metabolic:</strong> Elevated cortisol levels increase pulse and blood pressure, raising the long-term risk of heart disease and diabetes.</li>
+                    <li><strong>Gut-Brain Axis Disruption:</strong> Heavy emotional toll disrupts the gut, which can disturb the production of mood-regulating neurotransmitters, leading to severe digestive problems, anxiety, and depressive moods.</li>
+                    <li><strong>Burnout:</strong> Relentless cognitive overload culminates in profound physical exhaustion, sleep disturbances, and clinical burnout.</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- SECTION GRAPHICS (Stats interactives et visuelles) -->
+        <section class="card-translucent stats-dashboard">
+            <h2 class="title-forum accent-orange text-center">Mental Load in Numbers</h2>
+            <div class="stats-grid">
+                
+                <!-- Graphic 1 (Heures de travail) -->
+                <div class="stat-item">
+                    <div class="hour-gauge-container">
+                        <span class="stat-number">98 hrs</span>
+                        <span class="stat-subtext">Per week</span>
+                        <div class="bar-gauge">
+                            <div class="bar-fill"></div>
+                        </div>
+                    </div>
+                    <span class="stat-label">Average hours worked by mothers (equivalent to 2.5 full-time jobs).</span>
+                </div>
+
+                <!-- Graphic 2 (Impact Désir Sexuel) -->
+                <div class="stat-item">
+                    <div class="circle-chart percent-75">
+                        <div class="circle-inner">
+                            <span class="stat-number">75%</span>
+                        </div>
+                    </div>
+                    <span class="stat-label">Of women report that the mental load significantly impacts their sexual desire.</span>
+                </div>
+
+                <!-- Graphic 3 (Perception Gap) -->
+                <div class="stat-item">
+                    <div class="circle-chart percent-54">
+                        <div class="circle-inner">
+                            <span class="stat-number">54%</span>
+                            <span class="stat-subtext">vs 22%</span>
+                        </div>
+                    </div>
+                    <span class="stat-label">54% of women feel they manage the house alone; only 22% of partners notice it. (Orange: Women / Blue: Partners)</span>
+                </div>
+            </div>
+
+            <!-- Visualisation des barres de comparaison pour le dialogue -->
+            <div class="stats-footer-note">
+                <p><strong>The Communication Barrier:</strong> What happens when couples try to discuss the load?</p>
+                
+                <div class="comparison-bars">
+                    <div class="comp-bar-item">
+                        <div class="comp-label">
+                            <span>"Just tell me what to do" response</span>
+                            <span>61%</span>
+                        </div>
+                        <div class="comp-track">
+                            <div class="comp-fill" style="width: 61%; background-color: var(--color-orange);"></div>
+                        </div>
+                    </div>
+                    <div class="comp-bar-item">
+                        <div class="comp-label">
+                            <span>Defensiveness response</span>
+                            <span>52%</span>
+                        </div>
+                        <div class="comp-track">
+                            <div class="comp-fill" style="width: 52%; background-color: var(--color-orange-light);"></div>
+                        </div>
+                    </div>
+                    <div class="comp-bar-item">
+                        <div class="comp-label">
+                            <span>Completely given up trying to discuss</span>
+                            <span>19%</span>
+                        </div>
+                        <div class="comp-track">
+                            <div class="comp-fill" style="width: 19%; background-color: var(--color-blue-light);"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SYMPTOMS (Somatic & Behavioral) -->
+        <section>
+            <h2 class="title-forum section-title">How Can You Know?</h2>
+            <p class="section-subtitle">Recognizing the subtle warning signs in your body and behaviors</p>
+
+            <!-- Image évocatrice des symptômes de fatigue corporelle -->
+            <img src="../content/img/mental-load-symptoms.png" alt="Somatic symptoms and stress realization" class="content-image">
+
+            <div class="card-translucent symptom-card">
+                <h4 class="symptom-title">1. Cognitive Overload & "Monkey Mind"</h4>
+                <p>Waking up at 3 a.m. with racing thoughts (mental to-do lists), experiencing brain fog and memory lapses, or feeling like your brain is a browser with "100 open tabs."</p>
+            </div>
+
+            <div class="card-translucent symptom-card">
+                <h4 class="symptom-title">2. Physical & Somatic Symptoms</h4>
+                <p>Feeling a spinning sensation or tightness in your chest, heart palpitations, chronic exhaustion unaffected by sleep, or stress-related stomachaches and tension headaches.</p>
+            </div>
+
+            <div class="card-translucent symptom-card">
+                <h4 class="symptom-title">3. Emotional Exhaustion & Resentment</h4>
+                <p>Feeling like you run an endless marathon, experiencing bitter feelings of isolation, and merely "functioning" on autopilot instead of actively living.</p>
+            </div>
+
+            <div class="card-translucent symptom-card">
+                <h4 class="symptom-title">4. Noticeable Behavioral Changes</h4>
+                <p>A plunge in libido due to an inability to turn off the brain, snapping at simple questions ("How can I help?"), or resorting to unhealthy numbing strategies like endless scrolling.</p>
+            </div>
+        </section>
+
+        <!-- SOLUTIONS SPLIT GRID -->
+        <section class="grid-solutions">
+            <!-- Column Left -->
+            <div class="card-translucent solution-column">
+                <div class="solution-header">
+                    <span class="badge-tag tag-orange">Fighting Alone</span>
+                    <h3 class="title-forum">Externalize & Filter</h3>
+                </div>
+                
+                <!-- Illustration Action Individuelle (Calme et écrit) -->
+                <img src="../content/img/fight-alone.png" alt="Mindfulness and individual balance" class="content-image" style="height:250px;">
+
+                <ul class="solution-steps">
+                    <li>
+                        <strong>Do a "Brain Dump"</strong>
+                        <p>Write down every single thought and task on paper. Emptying your head instantly alleviates working memory strain.</p>
+                    </li>
+                    <li>
+                        <strong>Apply the Eisenhower Matrix</strong>
+                        <p>Filter your to-do lists. Keep crucial priorities and drop low-value, non-urgent expectations.</p>
+                    </li>
+                    <li>
+                        <strong>The 80/20 Rule for House Chores</strong>
+                        <p>Stop chasing 100% perfection on repetitive tasks (meals, cleaning). A "good enough" result saves precious energy.</p>
+                    </li>
+                    <li>
+                        <strong>Automate & Standardize</strong>
+                        <p>Use password managers, a dedicated family life-admin inbox, and auto-delivery subscriptions for basic staples.</p>
+                    </li>
+                    <li>
+                        <strong>Somatic Calming</strong>
+                        <p>Break the fight-or-flight loops physically through deep diaphragmatic breathing or using the mindfulness RAIN sequence.</p>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Column Right -->
+            <div class="card-translucent solution-column">
+                <div class="solution-header">
+                    <span class="badge-tag tag-navy">Fighting Together</span>
+                    <h3 class="title-forum">Restructure & Share</h3>
+                </div>
+
+                <!-- Illustration Action Collective (Partage et soutien à deux) -->
+                <img src="../content/img/fight-together.png" alt="Couple collaborating in a balanced home environment" class="content-image" style="height:250px;">
+
+                <ul class="solution-steps">
+                    <li>
+                        <strong>CPE (Conception, Planning, Execution)</strong>
+                        <p>For a task to be shared, your partner must own it from design to completion. No more default delegating.</p>
+                    </li>
+                    <li>
+                        <strong>Centralize Neutral Systems</strong>
+                        <p>Use a shared digital calendar and a collaborative family email. Let systems hold the details, not your mind.</p>
+                    </li>
+                    <li>
+                        <strong>Weekly "Kitchen Meetings"</strong>
+                        <p>Set a weekly 15-minute sync to check calendars, divide responsibilities, and adjust before resentment builds.</p>
+                    </li>
+                    <li>
+                        <strong>Negotiate Standards & Let Go</strong>
+                        <p>Establish mutually agreed standards, then give your partner room to fail, learn, and adjust without hovering.</p>
+                    </li>
+                    <li>
+                        <strong>Make the Invisible Visible</strong>
+                        <p>Stop expecting mind-reading. Clearly narrate your planning process, and practice validating efforts with clear data.</p>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- CALL TO ACTION -->
+        <section class="card-translucent cta-practice-board">
+            <h3 class="title-forum">Ready to reclaim your mental space?</h3>
+            <p>Don't carry the invisible weight alone. Assess your current situation and access support tools right now.</p>
+            <div class="cta-actions">
+                <a href="test.html?topic=mental_load" class="btn btn-orange" data-theme-key="mental-load">Start the Mental Load Test</a>
+                <a href="forum.html" class="btn btn-outline">Join the Discussion Forum</a>
+            </div>
+        </section>
+
     </div>
+</main>
 
     <footer class="footer">
         <div class="footer-container">
@@ -75,6 +864,6 @@
         </div>
     </div>
 
-    <script src="../js/script.js"></script>
+    <script src="../js/script.js?v=20260715"></script>
 </body>
 </html>

@@ -112,13 +112,160 @@ const themesData = {
     ]
 };
 
+const THEME_VISIBILITY_STORAGE_KEY = 'simba_theme_visibility';
+const THEME_VISIBILITY_SYNC_EVENT = 'simba-theme-visibility-changed';
+const THEME_PAGE_KEYS = Object.values(themesData).flat().map((theme) => String(theme.link || '').replace(/\.html$/i, '')).filter(Boolean);
+let themeVisibilityCache = null;
+
+function getThemeVisibilityDefaults() {
+    return THEME_PAGE_KEYS.reduce((accumulator, key) => {
+        accumulator[key] = true;
+        return accumulator;
+    }, {});
+}
+
+function normalizeThemeVisibilitySettings(settings) {
+    const defaults = getThemeVisibilityDefaults();
+    const source = settings && typeof settings === 'object' ? settings : {};
+
+    Object.keys(defaults).forEach((key) => {
+        defaults[key] = source[key] !== false;
+    });
+
+    return defaults;
+}
+
+function readStoredThemeVisibilitySettings() {
+    try {
+        return normalizeThemeVisibilitySettings(JSON.parse(localStorage.getItem(THEME_VISIBILITY_STORAGE_KEY) || '{}'));
+    } catch (error) {
+        return getThemeVisibilityDefaults();
+    }
+}
+
+function saveStoredThemeVisibilitySettings(settings) {
+    const nextSettings = normalizeThemeVisibilitySettings(settings);
+    themeVisibilityCache = nextSettings;
+    localStorage.setItem(THEME_VISIBILITY_STORAGE_KEY, JSON.stringify(nextSettings));
+    return nextSettings;
+}
+
+function getCurrentThemeVisibilitySettings() {
+    if (themeVisibilityCache) return themeVisibilityCache;
+    themeVisibilityCache = readStoredThemeVisibilitySettings();
+    return themeVisibilityCache;
+}
+
+async function syncThemeVisibilitySettings() {
+    try {
+        const response = await fetch('/api/theme-visibility', { credentials: 'include' });
+        if (!response.ok) return getCurrentThemeVisibilitySettings();
+        const data = await response.json();
+        const nextSettings = saveStoredThemeVisibilitySettings(data && data.visibility ? data.visibility : data);
+        try {
+            window.dispatchEvent(new CustomEvent(THEME_VISIBILITY_SYNC_EVENT, { detail: { visibility: nextSettings } }));
+        } catch (error) {}
+        return nextSettings;
+    } catch (error) {
+        return getCurrentThemeVisibilitySettings();
+    }
+}
+
+async function saveThemeVisibilitySettings(settings) {
+    const nextSettings = saveStoredThemeVisibilitySettings(settings);
+    try {
+        const currentUser = typeof getCurrentSessionUser === 'function' ? getCurrentSessionUser() : null;
+        if (currentUser && currentUser.email && isAdminUser(currentUser.email)) {
+            const response = await fetch('/api/theme-visibility', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ visibility: nextSettings })
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (data && data.visibility) {
+                    const savedSettings = saveStoredThemeVisibilitySettings(data.visibility);
+                    try {
+                        window.dispatchEvent(new CustomEvent(THEME_VISIBILITY_SYNC_EVENT, { detail: { visibility: savedSettings } }));
+                    } catch (error) {}
+                    return savedSettings;
+                }
+            }
+        }
+    } catch (error) {}
+
+    try {
+        window.dispatchEvent(new CustomEvent(THEME_VISIBILITY_SYNC_EVENT, { detail: { visibility: nextSettings } }));
+    } catch (error) {}
+    return nextSettings;
+}
+
+function getThemeSlugFromLink(link) {
+    return String(link || '').replace(/\.html$/i, '');
+}
+
+function isThemeVisible(theme, userEmail) {
+    const themeKey = typeof theme === 'string' ? theme : getThemeSlugFromLink(theme && theme.link);
+    if (!themeKey) return true;
+    if (typeof userEmail === 'string' && isAdminUser(userEmail)) return true;
+    const visibility = getCurrentThemeVisibilitySettings();
+    return visibility[themeKey] !== false;
+}
+
+function getVisibleThemesForCategory(category, userEmail) {
+    return (themesData[category] || []).filter((theme) => isThemeVisible(theme, userEmail));
+}
+
+function applyThemeAccessGate() {
+    const page = window.location.pathname.split('/').pop() || '';
+    const themeKey = getThemeSlugFromLink(page);
+    if (!themeKey || THEME_PAGE_KEYS.indexOf(themeKey) === -1) return;
+
+    const currentUser = typeof getCurrentSessionUser === 'function' ? getCurrentSessionUser() : null;
+    const hiddenForCurrentUser = !isThemeVisible(themeKey, currentUser && currentUser.email);
+    const existingOverlay = document.querySelector('.theme-access-overlay');
+
+    if (!hiddenForCurrentUser) {
+        document.body.classList.remove('theme-page--locked');
+        if (existingOverlay) existingOverlay.remove();
+        return;
+    }
+
+    if (document.body.classList.contains('theme-page--locked') && existingOverlay) return;
+    document.body.classList.add('theme-page--locked');
+
+    if (existingOverlay) existingOverlay.remove();
+    const overlay = document.createElement('div');
+    overlay.className = 'theme-access-overlay';
+    overlay.innerHTML = `
+        <div class="theme-access-card">
+            <span class="theme-access-card__badge">${simbaT('theme.privateBadge', 'Private theme')}</span>
+            <h2>${simbaT('theme.privateTitle', 'This theme is not public yet')}</h2>
+            <p>${simbaT('theme.privateBody', 'An administrator can still open and review this page. Public access will appear once the theme is marked visible.')}</p>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
 // RENDER THEMES
 function renderThemes(category) {
     const grid = document.getElementById('themesGrid');
     if (!grid) return;
-    const themes = themesData[category] || [];
+    const currentUser = typeof getCurrentSessionUser === 'function' ? getCurrentSessionUser() : null;
+    const themes = getVisibleThemesForCategory(category, currentUser && currentUser.email);
     const getThemeCopy = (theme) => (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function') ? window.SimbaI18n.getThemeCard(theme) : theme;
     const learnMoreLabel = simbaT('theme.learnMore', 'Learn more about it');
+
+    if (!themes.length) {
+        grid.innerHTML = `
+            <div class="theme-card theme-card--empty">
+                <h3>${simbaT('theme.noPublicThemesTitle', 'No public themes yet')}</h3>
+                <p>${simbaT('theme.noPublicThemesBody', 'This category is waiting for an admin to publish at least one theme.')}</p>
+            </div>
+        `;
+        return;
+    }
     
     grid.innerHTML = themes.map(theme => `
         <div class="theme-card">
@@ -553,13 +700,24 @@ function bindLogoToHome() {
     logo.dataset.homeLinkBound = 'true';
 }
 
-function buildNavbarDropdowns() {
+function buildNavbarDropdowns(force = false) {
     const navList = document.querySelector('.nav-list');
-    if (!navList || navList.dataset.dropdownReady === 'true') return;
+    if (!navList) return;
+    if (force) {
+        navList.querySelectorAll('.nav-dropdown').forEach((node) => node.remove());
+        navList.querySelectorAll('.nav-menu-item.has-dropdown').forEach((item) => {
+            item.classList.remove('nav-menu-item', 'has-dropdown', 'is-open');
+        });
+        navList.querySelectorAll('.nav-link--dropdown').forEach((link) => link.classList.remove('nav-link--dropdown'));
+        navList.dataset.dropdownReady = '';
+    } else if (navList.dataset.dropdownReady === 'true') {
+        return;
+    }
 
     const t = (key, fallback) => simbaT(key, fallback);
+    const currentUser = typeof getCurrentSessionUser === 'function' ? getCurrentSessionUser() : null;
 
-    const thematicsItems = Object.values(themesData).flat().map((theme) => ({
+    const thematicsItems = Object.values(themesData).flat().filter((theme) => isThemeVisible(theme, currentUser && currentUser.email)).map((theme) => ({
         label: window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard(theme).name : theme.name,
         themeKey: String(theme.link || '').replace(/\.html$/i, ''),
         href: theme.link
@@ -576,6 +734,7 @@ function buildNavbarDropdowns() {
 
     const buildSimpleLinks = (links) => `
         <div class="nav-dropdown-links nav-dropdown-links--plain">
+            ${links.length ? '' : `<span class="nav-dropdown-empty">${simbaT('theme.noPublicThemesTitle', 'No public themes yet')}</span>`}
             ${links.map((link) => `
                 <a href="${link.href}" class="nav-dropdown-link">
                     <strong${link.labelKey ? ` data-i18n="${link.labelKey}"` : ''}${link.themeKey ? ` data-theme-key="${link.themeKey}"` : ''}>${link.label}</strong>
@@ -637,6 +796,7 @@ function buildNavbarDropdowns() {
     }
 
     navList.querySelectorAll('.nav-menu-item.has-dropdown').forEach((item) => {
+        if (item.dataset.dropdownBound === 'true') return;
         let closeTimer = null;
 
         const openMenu = () => {
@@ -658,6 +818,7 @@ function buildNavbarDropdowns() {
         item.addEventListener('mouseleave', closeMenu);
         item.addEventListener('focusin', openMenu);
         item.addEventListener('focusout', closeMenu);
+        item.dataset.dropdownBound = 'true';
     });
 
     const currentPage = window.location.pathname.split('/').pop() || 'index.html';
@@ -740,17 +901,23 @@ function updateAuthUI() {
     if (typeof window.refreshProfileButton === 'function') {
         window.refreshProfileButton();
     }
+
+    try {
+        window.dispatchEvent(new CustomEvent(THEME_VISIBILITY_SYNC_EVENT, { detail: { visibility: getCurrentThemeVisibilitySettings() } }));
+    } catch (error) {}
 }
 
 document.addEventListener('DOMContentLoaded', function() {
     // CATEGORY TABS
     const categoryTabs = document.querySelectorAll('.category-tab');
     let activeCategory = 'relationships';
+    window.__simbaActiveThemeCategory = activeCategory;
     
     categoryTabs.forEach(tab => {
         tab.addEventListener('click', function() {
             const category = this.getAttribute('data-category');
             activeCategory = category;
+            window.__simbaActiveThemeCategory = activeCategory;
             
             // Remove active class from all tabs
             categoryTabs.forEach(t => t.classList.remove('active'));
@@ -766,10 +933,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize with first category
     renderThemes('relationships');
     activeCategory = 'relationships';
+    window.__simbaActiveThemeCategory = activeCategory;
 
     window.addEventListener('simba-language-changed', function() {
         renderThemes(activeCategory);
     });
+
+    window.addEventListener(THEME_VISIBILITY_SYNC_EVENT, function() {
+        buildNavbarDropdowns(true);
+        const currentCategory = window.__simbaActiveThemeCategory || activeCategory || 'relationships';
+        renderThemes(currentCategory);
+        applyThemeAccessGate();
+    });
+
+    applyThemeAccessGate();
+    void syncThemeVisibilitySettings();
 
     // NAV LINK ACTIVE STATE
     const navLinks = document.querySelectorAll('.nav-link');
@@ -1237,6 +1415,10 @@ document.addEventListener('DOMContentLoaded', function() {
             window.getLocalUsers = getLocalUsers;
             window.saveLocalUsers = saveLocalUsers;
             window.findLocalUserByEmail = findLocalUserByEmail;
+            window.getCurrentThemeVisibilitySettings = getCurrentThemeVisibilitySettings;
+            window.saveThemeVisibilitySettings = saveThemeVisibilitySettings;
+            window.syncThemeVisibilitySettings = syncThemeVisibilitySettings;
+            window.isThemeVisible = isThemeVisible;
             window.flushPendingQuizScores = flushPendingQuizScores;
             window.openProfileEditor = function() {
                 if (typeof window.showAuthModal === 'function') {
@@ -1322,6 +1504,7 @@ try {
 function initThemePracticeSections() {
     const content = document.querySelector('.theme-page-content');
     if (!content || document.querySelector('.theme-practice-root')) return;
+    if (content.classList.contains('theme-page-content--coming-soon')) return;
 
     const pageKey = (window.location.pathname.split('/').pop() || '').replace(/\.html$/i, '');
     if (!pageKey) return;

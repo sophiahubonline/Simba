@@ -1,0 +1,250 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "probe-encoding",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\_probe_encoding.ps1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "probe-encoding",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\_probe_encoding.ps1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "probe-encoding",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\_probe_encoding.ps1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "probe-file-encoding",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\_probe_file_encoding.ps1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "probe-raw-encoding",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\_probe_raw_encoding.ps1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "dump-bytes",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\_dump_bytes.ps1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "git-log-i18n",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"log",
+				"--oneline",
+				"--",
+				"js/i18n.js"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "show-03877c7-i18n",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"show",
+				"03877c7:js/i18n.js"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "show-deadfe8-i18n",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"show",
+				"deadfe8:js/i18n.js"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-03877c7-visios",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"show",
+				"03877c7:js/i18n.js"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-03877c7-privateAppointment",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"show",
+				"03877c7:js/i18n.js"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "search-03877c7-privateAppointment",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-Command",
+				"git show 03877c7:js/i18n.js | Select-String -Pattern 'privateAppointment|shareScreen|openChat'"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "search-03877c7-quiz-locale",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-Command",
+				"git show 03877c7:js/quiz.js | Select-String -Pattern 'localizedQuestionTemplates|questionTemplates'"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-head-privateAppointment",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-Command",
+				"git show 03877c7:js/i18n.js | Select-String -Pattern 'privateAppointment|shareScreen|openChat'"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check-head-language-labels",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-Command",
+				"git show 03877c7:js/i18n.js | Select-String -Pattern 'language: \\{|Français|Español|Deutsch'"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "export-head-i18n",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"git show 03877c7:js/i18n.js > _head_i18n.js"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "export-deadfe8-i18n",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"git show deadfe8:js/i18n.js > _deadfe8_i18n.js"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "restore-i18n-deadfe8",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"copy",
+				"/Y",
+				"_deadfe8_i18n.js",
+				"js\\i18n.js"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "export-3e6abae-i18n",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"git show 3e6abae:js/i18n.js > _3e6abae_i18n.js"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}

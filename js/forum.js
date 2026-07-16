@@ -12,6 +12,25 @@
     const t = (key, fallback = '') => (window.SimbaI18n && typeof window.SimbaI18n.getTranslation === 'function') ? window.SimbaI18n.getTranslation(key, fallback) : fallback;
     const getLocale = () => (window.SimbaI18n && typeof window.SimbaI18n.getLocale === 'function') ? window.SimbaI18n.getLocale(window.SimbaI18n.getCurrentLanguage()) : 'en-US';
 
+    function getForumLanguage() {
+        return (window.SimbaI18n && typeof window.SimbaI18n.getCurrentLanguage === 'function')
+            ? window.SimbaI18n.getCurrentLanguage()
+            : 'en';
+    }
+
+    function getForumCopy() {
+        const language = getForumLanguage();
+        const copies = {
+            en: { attachmentLabel: 'Attachment', chooseFile: 'Choose file', noFileChosen: 'No file chosen', attachmentError: 'Could not read the attachment.', reasons: { inappropriate: 'Inappropriate', harassment: 'Harassment', spam: 'Spam', hate: 'Hate speech', other: 'Other' } },
+            fr: { attachmentLabel: 'Pièce jointe', chooseFile: 'Choisir un fichier', noFileChosen: 'Aucun fichier choisi', attachmentError: 'Impossible de lire la pièce jointe.', reasons: { inappropriate: 'Inapproprié', harassment: 'Harcèlement', spam: 'Spam', hate: 'Discours haineux', other: 'Autre' } },
+            de: { attachmentLabel: 'Anhang', chooseFile: 'Datei auswählen', noFileChosen: 'Keine Datei ausgewählt', attachmentError: 'Der Anhang konnte nicht gelesen werden.', reasons: { inappropriate: 'Unpassend', harassment: 'Belästigung', spam: 'Spam', hate: 'Hassrede', other: 'Andere' } },
+            es: { attachmentLabel: 'Adjunto', chooseFile: 'Elegir archivo', noFileChosen: 'Ningún archivo elegido', attachmentError: 'No se pudo leer el adjunto.', reasons: { inappropriate: 'Inapropiado', harassment: 'Acoso', spam: 'Spam', hate: 'Discurso de odio', other: 'Otro' } },
+            it: { attachmentLabel: 'Allegato', chooseFile: 'Scegli file', noFileChosen: 'Nessun file scelto', attachmentError: 'Impossibile leggere l’allegato.', reasons: { inappropriate: 'Non appropriato', harassment: 'Molestie', spam: 'Spam', hate: 'Incitamento all’odio', other: 'Altro' } }
+        };
+
+        return copies[language] || copies.en;
+    }
+
     function getCurrentUser() {
         try { return JSON.parse(localStorage.getItem('simba_user') || 'null'); } catch (e) { return null; }
     }
@@ -285,8 +304,9 @@
     }
 
     function buildReasonButtons(panelId) {
+        const copy = getForumCopy();
         return MODERATION_REASONS.map((reason) => `
-            <button type="button" class="forum-moderation-reason" data-moderation-reason="${reason.key}" data-moderation-panel="${panelId}">${t('forum.' + reason.key, reason.label)}</button>
+            <button type="button" class="forum-moderation-reason" data-moderation-reason="${reason.key}" data-moderation-panel="${panelId}">${copy.reasons[reason.key] || reason.label}</button>
         `).join('');
     }
 
@@ -310,7 +330,9 @@
     }
 
     function getReasonLabel(reasonKey) {
-        return (MODERATION_REASONS.find((reason) => reason.key === reasonKey) || {}).label || reasonKey || 'Other';
+        const copy = getForumCopy();
+        const reason = MODERATION_REASONS.find((item) => item.key === reasonKey) || {};
+        return copy.reasons[reasonKey] || reason.label || reasonKey || 'Other';
     }
 
     function deleteForumItem(targetType, targetId, reasonKey, otherReason) {
@@ -381,6 +403,7 @@
         }
 
         const identity = getPostingIdentity();
+        const copy = getForumCopy();
         const threads = loadThreads().filter((thread) => !thread.deleted).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         const canModerate = identity.role === 'admin';
 
@@ -426,10 +449,14 @@
                             ${t('forum.messageLabel', 'Message')}
                             <textarea id="forumMessage" rows="6" maxlength="2500" placeholder="${t('forum.messagePlaceholder', 'Describe your question or share your point of view...')}"></textarea>
                         </label>
-                        <label class="forum-form-attachment-field">
-                            Attachment
-                            <input id="forumAttachment" type="file" />
-                        </label>
+                        <div class="forum-form-attachment-field">
+                            <span>${copy.attachmentLabel}</span>
+                            <input id="forumAttachment" type="file" hidden />
+                            <div class="forum-form-attachment-controls">
+                                <button type="button" class="forum-submit-btn forum-submit-btn--small" id="forumAttachmentButton">${copy.chooseFile}</button>
+                                <span id="forumAttachmentStatus">${copy.noFileChosen}</span>
+                            </div>
+                        </div>
                         <div class="forum-form-footer">
                             <span id="forumFormNote">${t('forum.note', 'Keep it respectful and specific.')}</span>
                             <button class="forum-submit-btn" type="submit">${t('forum.postMessage', 'Post message')}</button>
@@ -464,7 +491,23 @@
                 const message = document.getElementById('forumMessage').value.trim();
                 const note = document.getElementById('forumFormNote');
                 const attachmentInput = document.getElementById('forumAttachment');
+                const attachmentButton = document.getElementById('forumAttachmentButton');
+                const attachmentStatus = document.getElementById('forumAttachmentStatus');
                 const attachmentFile = attachmentInput && attachmentInput.files && attachmentInput.files[0] ? attachmentInput.files[0] : null;
+
+                if (attachmentButton && attachmentInput && !attachmentButton.__forumBound) {
+                    attachmentButton.__forumBound = true;
+                    attachmentButton.addEventListener('click', () => attachmentInput.click());
+                }
+
+                if (attachmentInput && attachmentStatus && !attachmentInput.__forumBound) {
+                    attachmentInput.__forumBound = true;
+                    attachmentInput.addEventListener('change', () => {
+                        attachmentStatus.textContent = attachmentInput.files && attachmentInput.files[0]
+                            ? attachmentInput.files[0].name
+                            : copy.noFileChosen;
+                    });
+                }
 
                     if (!title || !message) {
                     if (note) note.textContent = t('forum.note', 'Please write both a title and a message.');
@@ -476,7 +519,7 @@
                     try {
                         attachment = await readAttachmentFile(attachmentFile);
                     } catch (error) {
-                        if (note) note.textContent = 'Could not read the attachment.';
+                        if (note) note.textContent = copy.attachmentError;
                         return;
                     }
                 }
@@ -502,6 +545,7 @@
                 if (note) note.textContent = t('forum.posted', 'Your message has been posted.');
                 form.reset();
                 document.getElementById('forumName').value = identity.name;
+                if (attachmentStatus) attachmentStatus.textContent = copy.noFileChosen;
                 await renderForum();
             });
         }
@@ -666,11 +710,11 @@
         const actor = getReactionActor();
         const deleteButtonLabel = t('forum.deleteOwnPost', 'Delete my post');
         const categoryLabel = {
-            question: 'Question',
-            discussion: 'Discussion',
-            support: 'Support',
-            feedback: 'Feedback'
-        }[thread.category] || 'Post';
+            question: t('forum.question', 'Question'),
+            discussion: t('forum.discussion', 'Discussion'),
+            support: t('forum.support', 'Support'),
+            feedback: t('forum.feedback', 'Feedback')
+        }[thread.category] || t('profile.postLabel', 'Post');
 
         return `
             <article class="forum-thread">
@@ -684,7 +728,7 @@
                         <div>
                             <strong>${escapeHtml(thread.author || 'Guest')}</strong>
                             <small>${formatDate(thread.createdAt)}</small>
-                            ${thread.role === 'admin' ? '<span class="forum-thread-badge forum-thread-badge--admin">Admin</span>' : ''}
+                            ${thread.role === 'admin' ? `<span class="forum-thread-badge forum-thread-badge--admin">${t('profile.adminBadge', 'Admin')}</span>` : ''}
                             ${thread.isAnonymous ? '<span class="forum-thread-badge">Anonymous</span>' : ''}
                             ${thread.email && isAdmin ? `<a class="forum-profile-link" href="profile.html?user=${encodeURIComponent(thread.email)}">${t('profile.openProfile', 'View profile')}</a>` : ''}
                         </div>
@@ -694,10 +738,10 @@
                 ${thread.attachment ? renderAttachment(thread.attachment) : ''}
                 ${renderReactionBar('thread', thread.id, normalizedThread, actor.key)}
                 <div class="forum-thread-actions">
-                    ${canShowReplies ? `<button type="button" class="forum-reply-toggle" data-reply-toggle="${replyBoxId}" aria-expanded="false">Reply</button>` : ''}
+                    ${canShowReplies ? `<button type="button" class="forum-reply-toggle" data-reply-toggle="${replyBoxId}" aria-expanded="false">${t('forum.reply', 'Reply')}</button>` : ''}
                     <span>${replies.length} ${replies.length === 1 ? t('forum.reply', 'reply') : t('forum.replies', 'replies')}</span>
                     ${thread.email && !thread.isAnonymous && threadOwnerEmail && threadOwnerEmail === currentEmail ? `<button type="button" class="forum-reply-toggle forum-delete-own" data-delete-own="thread" data-delete-id="${thread.id}">${deleteButtonLabel}</button>` : ''}
-                    ${isAdmin && !(thread.email && !thread.isAnonymous && threadOwnerEmail && threadOwnerEmail === currentEmail) ? `<button type="button" class="forum-reply-toggle forum-delete-toggle" data-delete-toggle="${thread.id}">Delete</button>` : ''}
+                    ${isAdmin && !(thread.email && !thread.isAnonymous && threadOwnerEmail && threadOwnerEmail === currentEmail) ? `<button type="button" class="forum-reply-toggle forum-delete-toggle" data-delete-toggle="${thread.id}">${t('forum.deletePost', 'Delete post')}</button>` : ''}
                 </div>
                 ${isAdmin ? buildModerationPanel(thread.id, 'thread') : ''}
                 <div class="forum-replies">
@@ -712,9 +756,9 @@
                                 <div class="forum-reply-header">
                                     <strong>${escapeHtml(reply.author || 'Guest')}</strong>
                                     <small>${formatDate(reply.createdAt)}</small>
-                                    ${reply.role === 'admin' ? `<span class="forum-thread-badge forum-thread-badge--admin">Admin</span>` : ''}
+                                    ${reply.role === 'admin' ? `<span class="forum-thread-badge forum-thread-badge--admin">${t('profile.adminBadge', 'Admin')}</span>` : ''}
                                     ${reply.isAnonymous ? `<span class="forum-thread-badge">${t('forum.anonymous', 'Anonymous')}</span>` : ''}
-                                    ${reply.email && isAdmin ? `<a class="forum-profile-link" href="profile.html?user=${encodeURIComponent(reply.email)}">View profile</a>` : ''}
+                                    ${reply.email && isAdmin ? `<a class="forum-profile-link" href="profile.html?user=${encodeURIComponent(reply.email)}">${t('profile.openProfile', 'View profile')}</a>` : ''}
                                 </div>
                                 <p>${escapeHtml(reply.body)}</p>
                                 ${renderReactionBar('reply', reply.id, normalizedReply, actor.key)}
