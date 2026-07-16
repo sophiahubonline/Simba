@@ -30,6 +30,35 @@
         return current.role || (typeof window.getUserRoleByEmail === 'function' ? window.getUserRoleByEmail(current.email) : 'user');
     }
 
+    function normalizeApprovalStatus(value, fallback = 'approved') {
+        const status = String(value || '').trim().toLowerCase();
+        if (status === 'pending' || status === 'approved' || status === 'rejected') {
+            return status;
+        }
+        return fallback;
+    }
+
+    function escapeHtml(value) {
+        return String(value || '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#39;');
+    }
+
+    function isMeetingPending(meeting) {
+        return normalizeApprovalStatus(meeting && meeting.approvalStatus) === 'pending';
+    }
+
+    function isMeetingApproved(meeting) {
+        return normalizeApprovalStatus(meeting && meeting.approvalStatus) === 'approved';
+    }
+
+    function isMeetingRejected(meeting) {
+        return normalizeApprovalStatus(meeting && meeting.approvalStatus) === 'rejected';
+    }
+
     function canManageVisios() {
         const current = getCurrentSessionUser();
         return !!(current && current.email && typeof window.canManageAdminAccess === 'function' && window.canManageAdminAccess(current.email));
@@ -53,6 +82,7 @@
         nextMeeting.id = nextMeeting.id || 'visio_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
         nextMeeting.title = String(nextMeeting.title || '').trim();
         nextMeeting.description = String(nextMeeting.description || '').trim();
+        nextMeeting.approvalStatus = normalizeApprovalStatus(nextMeeting.approvalStatus, 'approved');
         nextMeeting.visibility = nextMeeting.visibility === 'private' ? 'private' : 'public';
         nextMeeting.invitees = Array.isArray(nextMeeting.invitees) ? nextMeeting.invitees.map(normalizeEmail).filter(Boolean) : [];
         nextMeeting.createdBy = normalizeEmail(nextMeeting.createdBy || getCurrentUserEmail());
@@ -73,6 +103,9 @@
         const normalizedEmail = normalizeEmail(email);
         const normalizedMeeting = normalizeMeeting(meeting);
         if (role === 'admin') return true;
+        if (isMeetingPending(normalizedMeeting) || isMeetingRejected(normalizedMeeting)) {
+            return normalizedEmail && normalizedMeeting.createdBy === normalizedEmail;
+        }
         if (normalizedMeeting.visibility !== 'private') return true;
         return normalizedEmail && (
             normalizedMeeting.createdBy === normalizedEmail ||
@@ -89,9 +122,12 @@
     }
 
     function getMeetingState(meeting) {
+        const approvalStatus = normalizeApprovalStatus(meeting && meeting.approvalStatus);
         const now = Date.now();
         const start = new Date(meeting.startsAt).getTime();
         const end = start + (Number(meeting.durationMinutes) || 45) * 60000;
+        if (approvalStatus === 'pending') return { state: 'pending', start, end };
+        if (approvalStatus === 'rejected') return { state: 'rejected', start, end };
         if (Number.isNaN(start)) return { state: 'upcoming', start, end };
         if (now < start) return { state: 'upcoming', start, end };
         if (now <= end) return { state: 'live', start, end };
@@ -164,6 +200,7 @@
 
     function createMeetingFromForm(form, options = {}) {
         const forcedVisibility = options.visibility === 'private' ? 'private' : options.visibility === 'public' ? 'public' : '';
+        const approvalStatus = normalizeApprovalStatus(options.approvalStatus, 'approved');
         const title = String(form.querySelector('#visioTitle')?.value || '').trim();
         const description = String(form.querySelector('#visioDescription')?.value || '').trim();
         const date = String(form.querySelector('#visioDate')?.value || '').trim();
@@ -191,6 +228,7 @@
             visibility,
             invitees,
             meetingType: options.meetingType || (visibility === 'private' ? 'private' : 'group'),
+            approvalStatus,
             createdBy: current ? current.email : '',
             createdByRole: current ? current.role || 'user' : 'user'
         });
@@ -213,6 +251,33 @@
         meetings.splice(index, 1);
         saveMeetings(meetings);
         return { ok: true };
+    }
+
+    function decideMeeting(meetingId, decision, reason) {
+        const current = getCurrentSessionUser();
+        if (!current || !current.email || !canManageVisios()) {
+            return { ok: false, reason: 'forbidden' };
+        }
+
+        const meetings = loadMeetings();
+        const index = meetings.findIndex((meeting) => meeting.id === meetingId);
+        if (index === -1) return { ok: false, reason: 'not-found' };
+
+        const nextDecision = decision === 'rejected' ? 'rejected' : 'approved';
+        const nextMeeting = normalizeMeeting(meetings[index]);
+        nextMeeting.approvalStatus = nextDecision;
+        nextMeeting.approvedBy = nextDecision === 'approved' ? current.email : nextMeeting.approvedBy;
+        nextMeeting.approvedAt = nextDecision === 'approved' ? new Date().toISOString() : nextMeeting.approvedAt;
+        nextMeeting.rejectedBy = nextDecision === 'rejected' ? current.email : '';
+        nextMeeting.rejectedAt = nextDecision === 'rejected' ? new Date().toISOString() : '';
+        nextMeeting.rejectionReason = nextDecision === 'rejected' ? String(reason || '').trim() : '';
+        if (nextDecision === 'rejected' && !nextMeeting.rejectionReason) {
+            return { ok: false, reason: 'missing-reason' };
+        }
+
+        meetings[index] = nextMeeting;
+        saveMeetings(meetings);
+        return { ok: true, meeting: nextMeeting };
     }
 
     function joinMeeting(meetingId) {
@@ -266,10 +331,15 @@
                             <div class="visio-day__meetings">
                                 ${day.meetings.slice(0, 3).map((meeting) => {
                                     const state = getMeetingState(meeting).state;
-                                    const badge = meeting.visibility === 'private'
-                                        ? t('visios.privateMeeting', 'Private meeting')
-                                        : t('visios.publicMeeting', 'Public meeting');
-                                    return `<button type="button" class="visio-day__meeting is-${state}" data-open-visio="${meeting.id}"><strong>${meeting.title}</strong><small>${badge}</small></button>`;
+                                        const approvalStatus = normalizeApprovalStatus(meeting.approvalStatus);
+                                        const badge = approvalStatus === 'pending'
+                                            ? t('visios.statusPending', 'Pending approval')
+                                            : approvalStatus === 'rejected'
+                                                ? t('visios.statusRejected', 'Rejected')
+                                                : meeting.visibility === 'private'
+                                                    ? t('visios.privateMeeting', 'Private meeting')
+                                                    : t('visios.publicMeeting', 'Public meeting');
+                                        return `<button type="button" class="visio-day__meeting is-${state}" data-open-visio="${meeting.id}"><strong>${meeting.title}</strong><small>${badge}</small></button>`;
                                 }).join('')}
                                 ${day.meetings.length > 3 ? `<span class="visio-day__more">+${day.meetings.length - 3}</span>` : ''}
                             </div>
@@ -283,7 +353,7 @@
     function renderMeetingCards(container, meetings, currentUser) {
         if (!container) return;
         if (!meetings.length) {
-            container.innerHTML = `<div class="visio-empty">${t('visios.noMeetings', 'No visio slots yet.')}</div>`;
+            container.innerHTML = `<div class="visio-empty">${t('visios.noMeetings', 'No live sessions yet.')}</div>`;
             return;
         }
 
@@ -292,12 +362,22 @@
 
         container.innerHTML = meetings.map((meeting) => {
             const state = getMeetingState(meeting);
+            const approvalStatus = normalizeApprovalStatus(meeting.approvalStatus);
             const stateLabel = state.state === 'live'
                 ? t('visios.joinNow', 'Join now')
+                : state.state === 'pending'
+                    ? t('visios.statusPending', 'Pending approval')
+                    : state.state === 'rejected'
+                        ? t('visios.statusRejected', 'Rejected')
                 : state.state === 'ended'
                     ? t('visios.ended', 'Ended')
                     : t('visios.waitForStart', 'Starts in {time}').replace('{time}', formatRelativeTime(state.start - Date.now()));
-            const canJoin = state.state === 'live';
+            const canJoin = state.state === 'live' && approvalStatus === 'approved';
+            const approvalLabel = approvalStatus === 'pending'
+                ? t('visios.statusPending', 'Pending approval')
+                : approvalStatus === 'rejected'
+                    ? t('visios.statusRejected', 'Rejected')
+                    : t('visios.statusApproved', 'Approved');
             const visibilityLabel = meeting.visibility === 'private'
                 ? t('visios.privateMeeting', 'Private meeting')
                 : t('visios.publicMeeting', 'Public meeting');
@@ -305,17 +385,23 @@
                 ? t('visios.groupMeeting', 'Group visio')
                 : t('visios.privateAppointment', 'Private appointment');
             const privateNote = meeting.visibility === 'private' ? `<p class="visio-card__note">${t('visios.onlyGuests', 'Private slot. Only invited people can see it.')}</p>` : '';
+            const approvalNote = approvalStatus === 'pending'
+                ? `<p class="visio-card__note">${t('visios.requestPending', 'This request is waiting for admin approval.')}</p>`
+                : approvalStatus === 'rejected'
+                    ? `<p class="visio-card__note visio-card__note--warning">${t('visios.requestRejected', 'This request was rejected.')} ${meeting.rejectionReason ? t('visios.rejectionReason', 'Reason: {reason}').replace('{reason}', escapeHtml(meeting.rejectionReason)) : ''}</p>`
+                    : '';
             const invitedLabel = meeting.visibility === 'private' && meeting.invitees.length
                 ? `<p class="visio-card__invitees"><strong>${t('visios.inviteesLabel', 'Invited emails')}:</strong> ${meeting.invitees.map((email) => `<span>${email}</span>`).join(', ')}</p>`
                 : '';
             const deleteButton = canAdmin ? `<button type="button" class="visio-card__delete" data-delete-visio="${meeting.id}">×</button>` : '';
 
             return `
-                <article class="visio-card">
+                <article class="visio-card is-${approvalStatus}">
                     <div class="visio-card__top">
                         <div>
-                            <span class="visio-chip">${visibilityLabel}</span>
-                            <span class="visio-chip visio-chip--secondary">${meetingTypeLabel}</span>
+                            <span class="visio-chip visio-chip--secondary" data-status="${approvalStatus}">${approvalLabel}</span>
+                            <span class="visio-chip" data-status="${meeting.visibility}">${visibilityLabel}</span>
+                            <span class="visio-chip visio-chip--secondary" data-status="${meeting.meetingType}">${meetingTypeLabel}</span>
                             <h3>${meeting.title}</h3>
                         </div>
                         ${deleteButton}
@@ -327,6 +413,7 @@
                         <span>${stateLabel}</span>
                     </div>
                     ${privateNote}
+                    ${approvalNote}
                     ${invitedLabel}
                     <div class="visio-card__actions">
                         <button type="button" class="btn-primary" data-join-visio="${meeting.id}" ${canJoin ? '' : 'disabled'}>${canJoin ? t('visios.joinCall', 'Join call') : stateLabel}</button>
@@ -347,15 +434,54 @@
         container.hidden = !canAdmin;
         if (!canAdmin) return;
 
+        const pendingMeetings = loadMeetings()
+            .map(normalizeMeeting)
+            .filter((meeting) => normalizeApprovalStatus(meeting.approvalStatus) === 'pending')
+            .sort((left, right) => new Date(left.startsAt) - new Date(right.startsAt));
+        const allMeetings = loadMeetings().map(normalizeMeeting);
+        const pendingCount = pendingMeetings.length;
+        const approvedCount = allMeetings.filter((meeting) => normalizeApprovalStatus(meeting.approvalStatus) === 'approved').length;
+        const rejectedCount = allMeetings.filter((meeting) => normalizeApprovalStatus(meeting.approvalStatus) === 'rejected').length;
+
         container.innerHTML = `
+            <section class="visios-admin-banner">
+                <div class="visios-admin-banner__copy">
+                    <p class="visios-kicker">${t('visios.reviewQueueTitle', 'Requests to review')}</p>
+                    <h2>${t('visios.reviewQueueBody', 'Approve a request before the session can happen.')}</h2>
+                    <p class="visios-panel__lead">${t('visios.adminBody', 'Create public slots for everyone or private slots for selected people only.')}</p>
+                </div>
+                <div class="visios-admin-banner__stats" aria-label="${t('visios.reviewQueueTitle', 'Requests to review')}">
+                    <div class="visios-admin-stat">
+                        <strong>${pendingCount}</strong>
+                        <span>${t('visios.statusPending', 'Pending approval')}</span>
+                    </div>
+                    <div class="visios-admin-stat">
+                        <strong>${approvedCount}</strong>
+                        <span>${t('visios.statusApproved', 'Approved')}</span>
+                    </div>
+                    <div class="visios-admin-stat visios-admin-stat--alert">
+                        <strong>${rejectedCount}</strong>
+                        <span>${t('visios.statusRejected', 'Rejected')}</span>
+                    </div>
+                </div>
+            </section>
             <div class="visios-panel-heading">
                 <div>
                     <p class="visios-kicker">${t('visios.adminTitle', 'Admin calendar')}</p>
                     <h2>${t('visios.adminTitle', 'Admin calendar')}</h2>
                 </div>
-                <span class="visio-chip">${t('visios.title', 'Visios')}</span>
+                <span class="visio-chip">${t('visios.title', 'Live Sessions')}</span>
             </div>
-            <p class="visios-panel__lead">${t('visios.adminBody', 'Create public slots for everyone or private slots for selected people only.')}</p>
+            <div class="visios-admin-queue">
+                <div class="visios-panel-heading">
+                    <div>
+                        <p class="visios-kicker">${t('visios.reviewQueueTitle', 'Requests to review')}</p>
+                        <h3>${t('visios.reviewQueueTitle', 'Requests to review')}</h3>
+                    </div>
+                    <span class="visio-chip visio-chip--secondary">${pendingCount} ${t('visios.statusPending', 'Pending approval')}</span>
+                </div>
+                <div id="visioReviewQueue" class="visios-admin-queue__list"></div>
+            </div>
             <form id="visioCreateForm" class="visios-form">
                 <div class="visios-form__grid">
                     <label>
@@ -402,6 +528,71 @@
             </form>
         `;
 
+        const reviewQueue = container.querySelector('#visioReviewQueue');
+        if (reviewQueue) {
+            if (!pendingMeetings.length) {
+                reviewQueue.innerHTML = `<div class="visio-empty">${t('visios.noPendingRequests', 'No requests pending approval.')}</div>`;
+            } else {
+                reviewQueue.innerHTML = pendingMeetings.map((meeting) => `
+                    <form class="visio-review-card" data-review-id="${meeting.id}">
+                        <div class="visio-review-card__top">
+                            <div>
+                                <span class="visio-chip visio-chip--secondary">${t('visios.statusPending', 'Pending approval')}</span>
+                                <h4>${meeting.title}</h4>
+                            </div>
+                            <small>${formatDateTime(meeting.startsAt)}</small>
+                        </div>
+                        <p class="visio-card__description">${meeting.description || ''}</p>
+                        <div class="visio-card__meta">
+                            <span>${t('visios.visibilityLabel', 'Visibility')}: ${meeting.visibility === 'private' ? t('visios.privateOption', 'Private') : t('visios.publicOption', 'Public')}</span>
+                            <span>${t('visios.durationLabel', 'Duration')}: ${meeting.durationMinutes} min</span>
+                            <span>${meeting.createdBy || ''}</span>
+                        </div>
+                        <label class="visio-review-card__reason">
+                            ${t('visios.rejectionReasonLabel', 'Reason for rejection')}
+                            <textarea name="rejectionReason" rows="3" maxlength="500" placeholder="${t('visios.rejectionReasonPlaceholder', 'Explain why this request is refused')}"></textarea>
+                        </label>
+                        <div class="visios-form__footer">
+                            <span class="visios-form__message" data-review-message></span>
+                            <div class="visio-review-card__actions">
+                                <button type="submit" class="btn-primary" data-decision="approved">${t('visios.approveRequest', 'Approve')}</button>
+                                <button type="submit" class="btn-edit" data-decision="rejected">${t('visios.rejectRequest', 'Reject')}</button>
+                            </div>
+                        </div>
+                    </form>
+                `).join('');
+
+                reviewQueue.querySelectorAll('[data-review-id]').forEach((form) => {
+                    form.addEventListener('submit', (event) => {
+                        event.preventDefault();
+                        const submitter = event.submitter;
+                        const decision = submitter && submitter.dataset ? submitter.dataset.decision : 'approved';
+                        const reasonInput = form.querySelector('[name="rejectionReason"]');
+                        const reviewMessage = form.querySelector('[data-review-message]');
+                        const meetingId = form.getAttribute('data-review-id');
+                        const reason = String(reasonInput && reasonInput.value ? reasonInput.value : '').trim();
+
+                        if (decision === 'rejected' && !reason) {
+                            if (reviewMessage) reviewMessage.textContent = t('visios.rejectionReasonRequired', 'Please provide a reason.');
+                            return;
+                        }
+
+                        const result = decideMeeting(meetingId, decision, reason);
+                        if (!result.ok) {
+                            if (reviewMessage) {
+                                reviewMessage.textContent = result.reason === 'missing-reason'
+                                    ? t('visios.rejectionReasonRequired', 'Please provide a reason.')
+                                    : t('visios.couldNotUpdateApproval', 'Could not update this request.');
+                            }
+                            return;
+                        }
+
+                        renderVisiosPage();
+                    });
+                });
+            }
+        }
+
         const form = container.querySelector('#visioCreateForm');
         const visibilitySelect = container.querySelector('#visioVisibility');
         const inviteesField = container.querySelector('[data-invitees-field]');
@@ -422,7 +613,7 @@
 
         form?.addEventListener('submit', (event) => {
             event.preventDefault();
-            const result = createMeetingFromForm(form);
+            const result = createMeetingFromForm(form, { approvalStatus: 'approved' });
             if (!result.ok) {
                 if (message) {
                     message.textContent = result.reason === 'invalid-date'
@@ -441,7 +632,7 @@
         const root = document.getElementById('visiosApp');
         if (!root) return;
 
-        document.title = t('visios.pageTitle', 'Visios - SIMBA PROJECT');
+        document.title = t('visios.pageTitle', 'Live Sessions - SIMBA PROJECT');
 
         const currentUser = getCurrentSessionUser();
         const currentRole = getCurrentUserRole();
@@ -473,8 +664,8 @@
             requestPanel.innerHTML = `
                 <div class="visios-panel-heading">
                     <div>
-                        <p class="visios-kicker">${t('visios.requestTitle', 'Request a visio')}</p>
-                        <h2>${t('visios.requestTitle', 'Request a visio')}</h2>
+                        <p class="visios-kicker">${t('visios.requestTitle', 'Request a live session')}</p>
+                        <h2>${t('visios.requestTitle', 'Request a live session')}</h2>
                     </div>
                     <span class="visio-chip">${t('visios.privateAppointment', 'Private appointment')}</span>
                 </div>
@@ -524,7 +715,7 @@
 
             requestForm?.addEventListener('submit', (event) => {
                 event.preventDefault();
-                const result = createMeetingFromForm(requestForm, { visibility: 'private', meetingType: 'private' });
+                const result = createMeetingFromForm(requestForm, { visibility: 'private', meetingType: 'private', approvalStatus: 'pending' });
                 if (!result.ok) {
                     if (requestMessage) {
                         requestMessage.textContent = result.reason === 'invalid-date'
@@ -595,19 +786,32 @@
         const currentEmail = normalizeEmail(currentUser && currentUser.email);
         const currentRole = getCurrentUserRole();
         const canAccess = !!meeting && isMeetingVisibleToUser(meeting, currentEmail, currentRole);
+        const approvalStatus = normalizeApprovalStatus(meeting && meeting.approvalStatus);
 
-        document.title = t('visios.pageTitle', 'Visios - SIMBA PROJECT');
+        document.title = t('visios.pageTitle', 'Live Sessions - SIMBA PROJECT');
 
         if (!meeting) {
-            root.innerHTML = `<div class="visio-room__notice">${t('visios.noMeetings', 'No visio slots yet.')}</div>`;
+            root.innerHTML = `<div class="visio-room__notice">${t('visios.noMeetings', 'No live sessions yet.')}</div>`;
             return;
         }
 
         if (!canAccess) {
             root.innerHTML = `
                 <section class="visio-room visio-room--denied">
-                    <h1>${t('visios.accessDenied', 'You do not have access to this visio.')}</h1>
+                    <h1>${t('visios.accessDenied', 'You do not have access to this session.')}</h1>
                     <p>${meeting.visibility === 'private' ? t('visios.onlyGuests', 'Private slot. Only invited people can see it.') : ''}</p>
+                    <a class="btn-primary" href="visios.html">${t('visios.backToCalendar', 'Back to calendar')}</a>
+                </section>
+            `;
+            return;
+        }
+
+        if (approvalStatus !== 'approved') {
+            const rejectionReason = meeting.rejectionReason ? `<p>${t('visios.rejectionReason', 'Reason: {reason}').replace('{reason}', escapeHtml(meeting.rejectionReason))}</p>` : '';
+            root.innerHTML = `
+                <section class="visio-room visio-room--denied">
+                    <h1>${approvalStatus === 'rejected' ? t('visios.requestRejected', 'This request was rejected.') : t('visios.requestPending', 'This request is waiting for admin approval.')}</h1>
+                    ${approvalStatus === 'rejected' ? rejectionReason : ''}
                     <a class="btn-primary" href="visios.html">${t('visios.backToCalendar', 'Back to calendar')}</a>
                 </section>
             `;
@@ -638,8 +842,8 @@
                         <video id="visioLocalVideo" class="visio-room__video" autoplay playsinline muted></video>
                         <div class="visio-room__overlay">
                             <div class="visio-room__overlay-item">
-                                <strong>${t('visios.roomTitle', 'Visio room')}</strong>
-                                <span>${meeting.meetingType === 'group' ? t('visios.groupMeeting', 'Group visio') : t('visios.privateAppointment', 'Private appointment')}</span>
+                                <strong>${t('visios.roomTitle', 'Session room')}</strong>
+                                    <span>${meeting.meetingType === 'group' ? t('visios.groupMeeting', 'Group session') : t('visios.privateAppointment', 'Private appointment')}</span>
                             </div>
                             <div class="visio-room__overlay-item">
                                 <strong>${t('visios.participantsLabel', 'Participants')}</strong>
@@ -650,7 +854,7 @@
                     </div>
                     <aside class="visio-room__panel">
                         <div class="visio-room__panel-block">
-                            <h2>${t('visios.roomTitle', 'Visio room')}</h2>
+                            <h2>${t('visios.roomTitle', 'Session room')}</h2>
                             <p>${t('visios.roomLead', 'Camera and microphone controls for this meeting.')}</p>
                         </div>
                         <div class="visio-room__controls">
@@ -668,7 +872,7 @@
                         </div>
                         <div class="visio-room__chat" hidden>
                             <div class="visio-room__chat-log" aria-live="polite">
-                                <div class="visio-room__chat-entry"><strong>${t('visios.roomTitle', 'Visio room')}</strong> ${t('visios.chatIntro', 'Chat is local to this browser session for now.')}</div>
+                                <div class="visio-room__chat-entry"><strong>${t('visios.roomTitle', 'Session room')}</strong> ${t('visios.chatIntro', 'Chat is local to this browser session for now.')}</div>
                             </div>
                             <form class="visio-room__chat-form">
                                 <input id="visioChatInput" type="text" maxlength="240" placeholder="${t('visios.chatPlaceholder', 'Write a message')}" />
