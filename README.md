@@ -674,3 +674,38 @@ The main priorities for future developers are:
 2. improving data management;
 3. creating a more scalable architecture;
 4. continuing to enrich the psychological content and community features.
+
+----------------------------------------------------------------
+
+Je te donne la démarche complète adaptée à ce repo, en partant de ce qui existe déjà: un serveur Express qui sert le front et l’API, avec un stockage local persistant côté serveur. Je vais te dire quoi choisir, quoi configurer, et dans quel ordre tester pour éviter les mauvaises surprises.
+
+Oui. La démarche la plus simple, pour que ce site soit gratuit, complet, et qu’il garde les données, c’est de tout publier ensemble avec un backend Node/Express qui sert aussi les pages statiques. Dans ton projet, c’est déjà presque prêt: index.js sert le contenu de html et expose les routes /api/..., et db.js garde les comptes en SQLite dans data.sqlite.
+
+Le point clé est celui-ci: si tu publies seulement le HTML/CSS/JS, le site sera visible mais pas complètement fonctionnel, parce que la connexion, l’inscription, le profil, les messages et le forum passent par le serveur. Et si tu héberges le serveur sur un service qui efface le disque à chaque redémarrage, tu perdras les données. Donc il faut soit un hébergement Node avec stockage persistant, soit remplacer le stockage local par une base externe gratuite.
+
+La démarche recommandée, pour ton code actuel, est la suivante:
+
+Choisir un hébergement qui peut exécuter Node.js et garder les fichiers.
+Déployer le dossier server comme application principale.
+Garder le dossier html, css, js et content dans le même déploiement, parce que le serveur Express les sert déjà.
+Configurer les variables d’environnement indiquées dans README.md:
+JWT_SECRET
+SMTP_HOST
+SMTP_PORT
+SMTP_USER
+SMTP_PASS
+SMTP_SECURE
+FROM_EMAIL
+Démarrer le serveur avec npm start dans le dossier server/.
+Vérifier que le site s’ouvre bien sur le domaine publié et que les appels /api/ping, /api/login, /api/signup, /api/profile, /api/forum/threads, /api/private-messages répondent.
+Tester ensuite tout le parcours utilisateur: inscription, connexion, édition du profil, messages, forum, reset mot de passe, confirmation email.
+Si tu veux absolument rester en gratuit et garder toutes les données, il y a une règle simple:
+
+si l’hébergeur garde le disque, ton stockage local fonctionne
+si l’hébergeur n’a pas de stockage persistant, il faut migrer vers une base externe gratuite
+Pour ce repo, le plus “sans refaire l’architecture” est donc un seul serveur Node qui héberge tout. C’est aussi le plus simple à maintenir, parce que les pages et l’API restent sur le même domaine, donc les cookies de session fonctionnent mieux.
+
+Je peux te faire la suite de deux façons:
+
+je te donne un guide de déploiement pas à pas sur une plateforme précise gratuite;
+je t’adapte le code pour un hébergement gratuit sans disque persistant, avec une vraie base externe.
