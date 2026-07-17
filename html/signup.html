@@ -56,6 +56,7 @@
     </main>
 
     <script>
+        const apiFetch = (url, options) => (typeof window.simbaApiFetch === 'function' ? window.simbaApiFetch(url, options) : fetch(url, options));
         document.getElementById('signupForm').addEventListener('submit', async function(e){
             e.preventDefault();
             const email = document.getElementById('email').value;
@@ -64,13 +65,13 @@
             if (password.length < 6) { alert('Password must be at least 6 characters'); return; }
             try {
                 // quick ping to detect if server is running
-                const ping = await fetch('/api/ping');
+                const ping = await apiFetch('/api/ping');
                 if (!ping.ok) { alert('API not reachable — please start the server.'); return; }
             } catch (err) {
                 alert('API not reachable — start the server (ex: cd server && npm start)'); return;
             }
             try {
-                const res = await fetch('/api/signup', {
+                const res = await apiFetch('/api/signup', {
                     method: 'POST', headers: {'Content-Type':'application/json'},
                     body: JSON.stringify({email, password}), credentials: 'include'
                 });

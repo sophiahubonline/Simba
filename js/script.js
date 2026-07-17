@@ -115,7 +115,48 @@ const themesData = {
 const THEME_VISIBILITY_STORAGE_KEY = 'simba_theme_visibility';
 const THEME_VISIBILITY_SYNC_EVENT = 'simba-theme-visibility-changed';
 const THEME_PAGE_KEYS = Object.values(themesData).flat().map((theme) => String(theme.link || '').replace(/\.html$/i, '')).filter(Boolean);
+const SIMBA_API_BASE_STORAGE_KEY = 'simba_api_base';
 let themeVisibilityCache = null;
+
+function getSimbaApiBase() {
+    try {
+        if (typeof window !== 'undefined' && typeof window.SIMBA_API_BASE === 'string' && window.SIMBA_API_BASE.trim()) {
+            return window.SIMBA_API_BASE.trim().replace(/\/$/, '');
+        }
+        const stored = localStorage.getItem(SIMBA_API_BASE_STORAGE_KEY);
+        if (stored && stored.trim()) {
+            return stored.trim().replace(/\/$/, '');
+        }
+    } catch (error) {}
+
+    if (typeof window !== 'undefined') {
+        const host = String(window.location.hostname || '').toLowerCase();
+        const port = String(window.location.port || '');
+        if ((host === '127.0.0.1' || host === 'localhost') && port === '5500') {
+            return `${window.location.protocol}//${window.location.hostname}:3000`;
+        }
+    }
+    return '';
+}
+
+const SIMBA_API_BASE = getSimbaApiBase();
+
+function simbaApiUrl(url) {
+    if (typeof url !== 'string' || !SIMBA_API_BASE) return url;
+    if (/^https?:\/\//i.test(url)) return url;
+    if (!url.startsWith('/api/')) return url;
+    return `${SIMBA_API_BASE}${url}`;
+}
+
+function simbaApiFetch(url, options) {
+    return fetch(simbaApiUrl(url), options);
+}
+
+if (typeof window !== 'undefined') {
+    window.SIMBA_API_BASE = SIMBA_API_BASE;
+    window.simbaApiUrl = simbaApiUrl;
+    window.simbaApiFetch = simbaApiFetch;
+}
 
 function getThemeVisibilityDefaults() {
     return THEME_PAGE_KEYS.reduce((accumulator, key) => {
@@ -158,7 +199,7 @@ function getCurrentThemeVisibilitySettings() {
 
 async function syncThemeVisibilitySettings() {
     try {
-        const response = await fetch('/api/theme-visibility', { credentials: 'include' });
+        const response = await simbaApiFetch('/api/theme-visibility', { credentials: 'include' });
         if (!response.ok) return getCurrentThemeVisibilitySettings();
         const data = await response.json();
         const nextSettings = saveStoredThemeVisibilitySettings(data && data.visibility ? data.visibility : data);
@@ -176,7 +217,7 @@ async function saveThemeVisibilitySettings(settings) {
     try {
         const currentUser = typeof getCurrentSessionUser === 'function' ? getCurrentSessionUser() : null;
         if (currentUser && currentUser.email && isAdminUser(currentUser.email)) {
-            const response = await fetch('/api/theme-visibility', {
+            const response = await simbaApiFetch('/api/theme-visibility', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -360,23 +401,85 @@ function getStoredProfile(email) {
     }
 }
 
-function setStoredProfile(email, profile) {
+function normalizeProfileEmail(email) {
+    return String(email || '').trim().toLowerCase();
+}
+
+const PROFILE_SYNC_DELAY_MS = 500;
+const profileSyncTimers = {};
+
+function sanitizeProfileForSync(profile) {
+    const source = profile && typeof profile === 'object' ? profile : {};
+    const next = {
+        ...source,
+        name: String(source.name || '').slice(0, 120),
+        bio: String(source.bio || '').slice(0, 4000),
+        avatar: String(source.avatar || '').slice(0, 2_000_000)
+    };
+
+    if (!Array.isArray(next.scores)) {
+        next.scores = [];
+    } else {
+        next.scores = next.scores.slice(0, 50);
+    }
+
+    return next;
+}
+
+async function syncStoredProfileToServer(email, profile) {
+    const currentUser = getCurrentSessionUser();
+    if (!currentUser || !currentUser.email) return false;
+    if (normalizeProfileEmail(currentUser.email) !== normalizeProfileEmail(email)) return false;
+
+    try {
+        const response = await simbaApiFetch('/api/profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ profile: sanitizeProfileForSync(profile) })
+        });
+        return !!(response && response.ok);
+    } catch (error) {
+        return false;
+    }
+}
+
+function scheduleProfileSync(email, profile) {
+    const targetEmail = normalizeProfileEmail(email);
+    if (!targetEmail) return;
+
+    if (profileSyncTimers[targetEmail]) {
+        clearTimeout(profileSyncTimers[targetEmail]);
+    }
+
+    profileSyncTimers[targetEmail] = setTimeout(() => {
+        delete profileSyncTimers[targetEmail];
+        void syncStoredProfileToServer(targetEmail, profile);
+    }, PROFILE_SYNC_DELAY_MS);
+}
+
+function setStoredProfile(email, profile, options = {}) {
     if (!email) return profile || {};
-    const nextProfile = profile || {};
+    const nextProfile = sanitizeProfileForSync(profile || {});
     if (!Array.isArray(nextProfile.scores)) {
         nextProfile.scores = [];
     }
     localStorage.setItem('simba_profile_' + email, JSON.stringify(nextProfile));
+
+    if (options.sync !== false) {
+        scheduleProfileSync(email, nextProfile);
+    }
+
     return nextProfile;
 }
 
-function mergeStoredProfile(email, patch) {
+function mergeStoredProfile(email, patch, options = {}) {
     const currentProfile = getStoredProfile(email);
     const nextProfile = { ...currentProfile, ...(patch || {}) };
     if (!Array.isArray(nextProfile.scores)) {
         nextProfile.scores = Array.isArray(currentProfile.scores) ? currentProfile.scores : [];
     }
-    return setStoredProfile(email, nextProfile);
+    return setStoredProfile(email, nextProfile, { sync: options.sync });
 }
 
 function appendProfileScore(scoreEntry) {
@@ -394,7 +497,7 @@ function appendProfileScore(scoreEntry) {
         scores: nextScores.slice(0, 50)
     };
 
-    setStoredProfile(currentUser.email, nextProfile);
+    setStoredProfile(currentUser.email, nextProfile, { sync: true });
     return nextProfile;
 }
 
@@ -966,7 +1069,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const id = setTimeout(() => controller.abort(), timeout);
         try {
             const merged = { ...opts, signal: controller.signal };
-            const res = await fetch(resource, merged);
+            const res = await simbaApiFetch(resource, merged);
             clearTimeout(id);
             return res;
         } catch (e) {
@@ -1338,7 +1441,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         const data = await res.json();
                         const profile = data.profile || {};
                         if (current && current.email) {
-                            setStoredProfile(current.email, profile);
+                            setStoredProfile(current.email, profile, { sync: false });
                         }
                         return profile;
                     }

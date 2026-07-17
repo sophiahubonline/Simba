@@ -37,12 +37,13 @@
   </main>
 
   <script>
+        const apiFetch = (url, options) => (typeof window.simbaApiFetch === 'function' ? window.simbaApiFetch(url, options) : fetch(url, options));
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
         const t = (key, fallback = '') => (window.SimbaI18n && typeof window.SimbaI18n.getTranslation === 'function') ? window.SimbaI18n.getTranslation(key, fallback) : fallback;
         if (!token) document.getElementById('content').innerText = t('pages.legal.missingToken', 'Missing token');
     else {
-      fetch('/api/confirm-email?token=' + encodeURIComponent(token)).then(r=>r.json()).then(data=>{
+      apiFetch('/api/confirm-email?token=' + encodeURIComponent(token)).then(r=>r.json()).then(data=>{
                 if (data && data.ok) document.getElementById('content').innerText = t('pages.legal.confirmSuccess', 'Email confirmed. You can close this page.');
                 else document.getElementById('content').innerText = t('pages.legal.confirmFailure', data.error || 'Confirmation failed');
             }).catch(()=>{document.getElementById('content').innerText=t('pages.legal.networkError', 'Network error');});

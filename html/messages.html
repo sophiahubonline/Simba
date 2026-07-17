@@ -88,6 +88,7 @@
     <script src="../js/i18n.js?v=20260715"></script>
     <script src="../js/script.js?v=20260715"></script>
     <script>
+        const apiFetch = (url, options) => (typeof window.simbaApiFetch === 'function' ? window.simbaApiFetch(url, options) : fetch(url, options));
         const t = (key, fallback = '') => (window.SimbaI18n && typeof window.SimbaI18n.getTranslation === 'function') ? window.SimbaI18n.getTranslation(key, fallback) : fallback;
         const getLocale = () => (window.SimbaI18n && typeof window.SimbaI18n.getLocale === 'function') ? window.SimbaI18n.getLocale(window.SimbaI18n.getCurrentLanguage()) : 'en-US';
         const SIMBA_PRIVATE_MESSAGES_KEY = 'simba_private_messages';
@@ -198,7 +199,7 @@
             const nextThreads = Array.isArray(threads) ? threads : [];
             localStorage.setItem(SIMBA_PRIVATE_MESSAGES_KEY, JSON.stringify(nextThreads));
             try {
-                fetch('/api/private-messages', {
+                apiFetch('/api/private-messages', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -211,9 +212,9 @@
             if (privateMessagesHydrationPromise) return privateMessagesHydrationPromise;
             privateMessagesHydrationPromise = (async () => {
                 try {
-                    const ping = await fetch('/api/ping');
+                    const ping = await apiFetch('/api/ping');
                     if (!ping.ok) return getPrivateMessageThreads();
-                    const res = await fetch('/api/private-messages', { credentials: 'include' });
+                    const res = await apiFetch('/api/private-messages', { credentials: 'include' });
                     if (!res.ok) return getPrivateMessageThreads();
                     const data = await res.json();
                     const items = Array.isArray(data.threads) ? data.threads : [];
@@ -420,7 +421,7 @@
             let currentSession = getCurrentSessionUser();
             if (!currentSession || !currentSession.email) {
                 try {
-                    const meRes = await fetch('/api/me', { credentials: 'include' });
+                    const meRes = await apiFetch('/api/me', { credentials: 'include' });
                     if (meRes.ok) {
                         const meData = await meRes.json();
                         if (meData && meData.user && meData.user.email) {

@@ -11,6 +11,7 @@
     const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢'];
     const t = (key, fallback = '') => (window.SimbaI18n && typeof window.SimbaI18n.getTranslation === 'function') ? window.SimbaI18n.getTranslation(key, fallback) : fallback;
     const getLocale = () => (window.SimbaI18n && typeof window.SimbaI18n.getLocale === 'function') ? window.SimbaI18n.getLocale(window.SimbaI18n.getCurrentLanguage()) : 'en-US';
+    const apiFetch = (url, options) => (typeof window.simbaApiFetch === 'function' ? window.simbaApiFetch(url, options) : fetch(url, options));
 
     function getForumLanguage() {
         return (window.SimbaI18n && typeof window.SimbaI18n.getCurrentLanguage === 'function')
@@ -85,7 +86,7 @@
             return nextThreads;
         }
         try {
-            await fetch('/api/forum/threads', {
+            await apiFetch('/api/forum/threads', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -97,9 +98,9 @@
 
     async function syncForumThreadsFromServer() {
         try {
-            const ping = await fetch('/api/ping');
+            const ping = await apiFetch('/api/ping');
             if (!ping.ok) return loadThreads();
-            const res = await fetch('/api/forum/threads', { credentials: 'include' });
+            const res = await apiFetch('/api/forum/threads', { credentials: 'include' });
             if (!res.ok) return loadThreads();
             const data = await res.json();
             const items = Array.isArray(data.threads) ? data.threads.slice(0, MAX_THREADS) : [];
@@ -393,7 +394,7 @@
         const currentSession = (() => { try { return JSON.parse(localStorage.getItem('simba_user') || 'null'); } catch (error) { return null; } })();
         if (!currentSession || !currentSession.email) {
             try {
-                const meRes = await fetch('/api/me', { credentials: 'include' });
+                const meRes = await apiFetch('/api/me', { credentials: 'include' });
                 if (meRes.ok) {
                     const meData = await meRes.json();
                     if (meData && meData.user && meData.user.email) {

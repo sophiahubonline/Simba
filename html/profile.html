@@ -154,6 +154,8 @@
     <script src="../js/i18n.js?v=20260715"></script>
     <script src="../js/script.js?v=20260715"></script>
     <script>
+        const apiFetch = (url, options) => (typeof window.simbaApiFetch === 'function' ? window.simbaApiFetch(url, options) : fetch(url, options));
+        const apiUrl = (path) => (typeof window.simbaApiUrl === 'function' ? window.simbaApiUrl(path) : path);
         const t = (key, fallback = '') => (window.SimbaI18n && typeof window.SimbaI18n.getTranslation === 'function') ? window.SimbaI18n.getTranslation(key, fallback) : fallback;
         const getLocale = () => (window.SimbaI18n && typeof window.SimbaI18n.getLocale === 'function') ? window.SimbaI18n.getLocale(window.SimbaI18n.getCurrentLanguage()) : 'en-US';
         let scoreHistoryExpanded = false;
@@ -207,11 +209,11 @@
 
         async function loadProfileFromServer(email) {
             try {
-                const url = new URL('/api/profile', window.location.origin);
+                const url = new URL(apiUrl('/api/profile'), window.location.origin);
                 if (email) {
                     url.searchParams.set('email', email);
                 }
-                const res = await fetch(url.toString(), { credentials: 'include' });
+                const res = await apiFetch(url.toString(), { credentials: 'include' });
                 if (!res.ok) return null;
                 const data = await res.json();
                 return data.profile || {};
@@ -224,9 +226,9 @@
             if (forumActivityHydrationPromise) return forumActivityHydrationPromise;
             forumActivityHydrationPromise = (async () => {
                 try {
-                    const ping = await fetch('/api/ping');
+                    const ping = await apiFetch('/api/ping');
                     if (!ping.ok) return;
-                    const res = await fetch('/api/forum/threads', { credentials: 'include' });
+                    const res = await apiFetch('/api/forum/threads', { credentials: 'include' });
                     if (!res.ok) return;
                     const data = await res.json();
                     const threads = Array.isArray(data.threads) ? data.threads : [];
@@ -269,9 +271,9 @@
 
             let results = [];
             try {
-                const url = new URL('/api/profiles/search', window.location.origin);
+                const url = new URL(apiUrl('/api/profiles/search'), window.location.origin);
                 url.searchParams.set('q', normalizedQuery);
-                const res = await fetch(url.toString(), { credentials: 'include' });
+                const res = await apiFetch(url.toString(), { credentials: 'include' });
                 if (res.ok) {
                     const data = await res.json();
                     results = Array.isArray(data.profiles) ? data.profiles : [];
@@ -703,7 +705,7 @@
             let current = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(e){ return null; } })();
             if (!current || !current.email) {
                 try {
-                    const meRes = await fetch('/api/me', { credentials: 'include' });
+                    const meRes = await apiFetch('/api/me', { credentials: 'include' });
                     if (meRes.ok) {
                         const meData = await meRes.json();
                         if (meData && meData.user && meData.user.email) {
@@ -866,9 +868,9 @@
             const newProfile = { ...existingProfile, name, bio, avatar };
             let savedOnServer = false;
             try {
-                const ping = await fetch('/api/ping');
+                const ping = await apiFetch('/api/ping');
                 if (ping.ok) {
-                    const res = await fetch('/api/profile', {
+                    const res = await apiFetch('/api/profile', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'include',

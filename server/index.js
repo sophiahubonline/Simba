@@ -62,6 +62,29 @@ function searchUsersByQuery(users, query) {
     .slice(0, 5);
 }
 
+function sanitizeProfilePayload(input, existingProfile = {}) {
+  const source = input && typeof input === 'object' ? input : {};
+  const nextProfile = { ...(existingProfile || {}) };
+
+  if (Object.prototype.hasOwnProperty.call(source, 'name')) {
+    nextProfile.name = String(source.name || '').slice(0, 120);
+  }
+  if (Object.prototype.hasOwnProperty.call(source, 'bio')) {
+    nextProfile.bio = String(source.bio || '').slice(0, 4000);
+  }
+  if (Object.prototype.hasOwnProperty.call(source, 'avatar')) {
+    nextProfile.avatar = String(source.avatar || '').slice(0, 2_000_000);
+  }
+  if (Object.prototype.hasOwnProperty.call(source, 'scores')) {
+    nextProfile.scores = Array.isArray(source.scores) ? source.scores.slice(0, 50) : [];
+  }
+  if (Object.prototype.hasOwnProperty.call(source, 'notifications')) {
+    nextProfile.notifications = Array.isArray(source.notifications) ? source.notifications.slice(0, 100) : [];
+  }
+
+  return nextProfile;
+}
+
 async function loadUsers() {
   try {
     const txt = await fs.readFile(usersFile, 'utf8');
@@ -242,12 +265,14 @@ app.get('/api/profile', async (req, res) => {
 app.post('/api/profile', async (req, res) => {
   const token = req.cookies && req.cookies.token;
   if (!token) return res.status(401).json({ error: 'Not authenticated' });
-  const { name, bio, avatar } = req.body || {};
+  const body = req.body || {};
+  const incomingProfile = body && typeof body.profile === 'object' ? body.profile : body;
   jwt.verify(token, JWT_SECRET, async (err, payload) => {
     if (err) return res.status(401).json({ error: 'Invalid token' });
     const user = await getUserById(payload.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
-    const updated = await updateUser(user.id, { profile: { ...(user.profile||{}), name: name||'', bio: bio||'', avatar: avatar||'' } });
+    const nextProfile = sanitizeProfilePayload(incomingProfile, user.profile || {});
+    const updated = await updateUser(user.id, { profile: nextProfile });
     return res.json({ ok: true, profile: updated.profile });
   });
 });

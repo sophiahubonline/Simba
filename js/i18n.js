@@ -1747,6 +1747,14 @@
         const themeKey = getThemePageKey();
         if (!themeKey) return;
 
+        // Only apply this flow on dedicated theme pages.
+        const language = getCurrentLanguage();
+        const hasThemeCopy = Boolean(
+            (themeCopies[language] && themeCopies[language][themeKey]) ||
+            (themeCopies.en && themeCopies.en[themeKey])
+        );
+        if (!hasThemeCopy) return;
+
         const themeCopy = getThemeCard({ link: `${themeKey}.html` });
         const header = document.querySelector('.theme-page-header h1') || document.querySelector('main h1') || document.querySelector('.hero-title-forum') || document.querySelector('h1');
         if (header) header.textContent = themeCopy.name;
@@ -1755,7 +1763,6 @@
         const content = document.querySelector('.theme-page-content');
         if (!content) return;
 
-        const language = getCurrentLanguage();
         const headingTemplates = {
             en: 'Understanding {name}',
             de: '{name} verstehen',
