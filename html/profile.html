@@ -85,13 +85,13 @@
                         <ul id="profile_admins_list" class="profile-admin-list"></ul>
                     </div>
                     <div id="theme_visibility_section" style="margin-top:1.35rem;padding-top:1.1rem;border-top:1px solid rgba(214,208,194,0.8)">
-                        <h4 style="margin:0 0 0.5rem">Theme visibility</h4>
-                        <p style="margin:0 0 0.9rem">Choose which thematic pages are visible to everyone.</p>
+                        <h4 style="margin:0 0 0.5rem" data-i18n="profile.themeVisibilityTitle">Theme visibility</h4>
+                        <p style="margin:0 0 0.9rem" data-i18n="profile.themeVisibilityBody">Choose which thematic pages are visible to everyone.</p>
                         <div id="theme_visibility_list" style="display:grid;gap:0.65rem"></div>
                         <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:0.9rem">
-                            <button id="theme_visibility_enable_all" class="btn-edit" type="button">Show all</button>
-                            <button id="theme_visibility_disable_all" class="btn-edit" type="button">Hide all</button>
-                            <button id="theme_visibility_save_btn" class="btn-primary" type="button">Save visibility</button>
+                            <button id="theme_visibility_enable_all" class="btn-edit" type="button" data-i18n="profile.themeVisibilityShowAll">Show all</button>
+                            <button id="theme_visibility_disable_all" class="btn-edit" type="button" data-i18n="profile.themeVisibilityHideAll">Hide all</button>
+                            <button id="theme_visibility_save_btn" class="btn-primary" type="button" data-i18n="profile.themeVisibilitySave">Save visibility</button>
                         </div>
                         <p id="theme_visibility_message" style="margin-top:0.7rem"></p>
                     </div>
@@ -166,26 +166,26 @@
         let themeVisibilityPendingSettings = null;
 
         const THEME_VISIBILITY_ITEMS = [
-            { key: 'attachment', label: 'Attachment' },
-            { key: 'family-conflict', label: 'Family Conflict' },
-            { key: 'unfairness-relationships', label: 'Unfairness in Relationships' },
-            { key: 'social-anxiety', label: 'Social Anxiety' },
-            { key: 'fomo', label: 'FOMO' },
-            { key: 'ocd', label: 'OCD' },
-            { key: 'ptsd', label: 'PTSD' },
-            { key: 'burnout', label: 'Burnout' },
-            { key: 'dissociation', label: 'Dissociation' },
-            { key: 'binge-eating-disorder', label: 'Binge Eating Disorder' },
-            { key: 'insomnia', label: 'Insomnia' },
-            { key: 'resilience', label: 'Resilience' },
-            { key: 'imposter-syndrome', label: 'Imposter Syndrome' },
-            { key: 'procrastination', label: 'Procrastination' },
-            { key: 'helplessness', label: 'Helplessness' },
-            { key: 'feedback-circuit', label: 'The Feedback Circuit' },
-            { key: 'adhd', label: 'ADHD' },
-            { key: 'dreams', label: 'Dreams' },
-            { key: 'pms', label: 'PMS' },
-            { key: 'mental-load', label: 'Mental Load' }
+            { key: 'attachment', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'attachment.html' }).name : 'Attachment') },
+            { key: 'family-conflict', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'family-conflict.html' }).name : 'Family Conflict') },
+            { key: 'unfairness-relationships', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'unfairness-relationships.html' }).name : 'Unfairness in Relationships') },
+            { key: 'social-anxiety', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'social-anxiety.html' }).name : 'Social Anxiety') },
+            { key: 'fomo', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'fomo.html' }).name : 'FOMO') },
+            { key: 'ocd', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'ocd.html' }).name : 'OCD') },
+            { key: 'ptsd', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'ptsd.html' }).name : 'PTSD') },
+            { key: 'burnout', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'burnout.html' }).name : 'Burnout') },
+            { key: 'dissociation', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'dissociation.html' }).name : 'Dissociation') },
+            { key: 'binge-eating-disorder', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'binge-eating-disorder.html' }).name : 'Binge Eating Disorder') },
+            { key: 'insomnia', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'insomnia.html' }).name : 'Insomnia') },
+            { key: 'resilience', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'resilience.html' }).name : 'Resilience') },
+            { key: 'imposter-syndrome', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'imposter-syndrome.html' }).name : 'Imposter Syndrome') },
+            { key: 'procrastination', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'procrastination.html' }).name : 'Procrastination') },
+            { key: 'helplessness', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'helplessness.html' }).name : 'Helplessness') },
+            { key: 'feedback-circuit', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'feedback-circuit.html' }).name : 'The Feedback Circuit') },
+            { key: 'adhd', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'adhd.html' }).name : 'ADHD') },
+            { key: 'dreams', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'dreams.html' }).name : 'Dreams') },
+            { key: 'pms', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'pms.html' }).name : 'PMS') },
+            { key: 'mental-load', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'mental-load.html' }).name : 'Mental Load') }
         ];
 
         function normalizeEmail(value) {
@@ -368,8 +368,8 @@
                         <strong>${escapeHtml(admin.name || admin.email)}</strong>
                         <small>${escapeHtml(admin.email)}</small>
                     </span>
-                    <span class="profile-admin-badge">Admin</span>
-                    <button type="button" class="profile-admin-remove" data-admin-remove="${escapeHtml(admin.email)}" title="Remove admin" aria-label="Remove admin">×</button>
+                    <span class="profile-admin-badge">${escapeHtml(t('profile.adminBadge', 'Admin'))}</span>
+                    <button type="button" class="profile-admin-remove" data-admin-remove="${escapeHtml(admin.email)}" title="${escapeHtml(t('profile.removeAdmin', 'Remove admin'))}" aria-label="${escapeHtml(t('profile.removeAdmin', 'Remove admin'))}">×</button>
                 `;
                 list.appendChild(item);
             });
@@ -414,7 +414,7 @@
             `).join('');
 
             if (message) {
-                message.textContent = themeVisibilityPendingSettings ? 'Unsaved changes' : '';
+                message.textContent = themeVisibilityPendingSettings ? t('profile.unsavedChanges', 'Unsaved changes') : '';
             }
 
             list.querySelectorAll('[data-theme-visibility-key]').forEach((input) => {
@@ -422,7 +422,7 @@
                     const nextSettings = { ...(themeVisibilityPendingSettings || getThemeVisibilitySnapshot()) };
                     nextSettings[String(this.getAttribute('data-theme-visibility-key') || '').trim()] = !!this.checked;
                     themeVisibilityPendingSettings = nextSettings;
-                    if (message) message.textContent = 'Unsaved changes';
+                    if (message) message.textContent = t('profile.unsavedChanges', 'Unsaved changes');
                 });
             });
         }
@@ -441,18 +441,18 @@
             const nextSettings = themeVisibilityPendingSettings || getThemeVisibilitySnapshot();
             if (!nextSettings) return;
 
-            if (message) message.textContent = 'Saving...';
+            if (message) message.textContent = t('profile.saving', 'Saving...');
             try {
                 const savedSettings = typeof window.saveThemeVisibilitySettings === 'function'
                     ? await window.saveThemeVisibilitySettings(nextSettings)
                     : nextSettings;
                 themeVisibilityPendingSettings = null;
-                if (message) message.textContent = 'Visibility saved.';
+                if (message) message.textContent = t('profile.visibilitySaved', 'Visibility saved.');
                 if (savedSettings) {
                     renderThemeVisibilityControls();
                 }
             } catch (error) {
-                if (message) message.textContent = 'Could not save visibility settings.';
+                if (message) message.textContent = t('profile.couldNotSaveVisibility', 'Could not save visibility settings.');
             }
         }
 

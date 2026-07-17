@@ -25,7 +25,8 @@
             fr: { attachmentLabel: 'Pièce jointe', chooseFile: 'Choisir un fichier', noFileChosen: 'Aucun fichier choisi', attachmentError: 'Impossible de lire la pièce jointe.', reasons: { inappropriate: 'Inapproprié', harassment: 'Harcèlement', spam: 'Spam', hate: 'Discours haineux', other: 'Autre' } },
             de: { attachmentLabel: 'Anhang', chooseFile: 'Datei auswählen', noFileChosen: 'Keine Datei ausgewählt', attachmentError: 'Der Anhang konnte nicht gelesen werden.', reasons: { inappropriate: 'Unpassend', harassment: 'Belästigung', spam: 'Spam', hate: 'Hassrede', other: 'Andere' } },
             es: { attachmentLabel: 'Adjunto', chooseFile: 'Elegir archivo', noFileChosen: 'Ningún archivo elegido', attachmentError: 'No se pudo leer el adjunto.', reasons: { inappropriate: 'Inapropiado', harassment: 'Acoso', spam: 'Spam', hate: 'Discurso de odio', other: 'Otro' } },
-            it: { attachmentLabel: 'Allegato', chooseFile: 'Scegli file', noFileChosen: 'Nessun file scelto', attachmentError: 'Impossibile leggere l’allegato.', reasons: { inappropriate: 'Non appropriato', harassment: 'Molestie', spam: 'Spam', hate: 'Incitamento all’odio', other: 'Altro' } }
+            it: { attachmentLabel: 'Allegato', chooseFile: 'Scegli file', noFileChosen: 'Nessun file scelto', attachmentError: 'Impossibile leggere l’allegato.', reasons: { inappropriate: 'Non appropriato', harassment: 'Molestie', spam: 'Spam', hate: 'Incitamento all’odio', other: 'Altro' } },
+            zh: { attachmentLabel: '附件', chooseFile: '选择文件', noFileChosen: '未选择文件', attachmentError: '无法读取附件。', reasons: { inappropriate: '不当内容', harassment: '骚扰', spam: '垃圾信息', hate: '仇恨言论', other: '其他' } }
         };
 
         return copies[language] || copies.en;
@@ -48,7 +49,7 @@
         if (!user || !user.email) {
             return {
                 isAnonymous: true,
-                name: 'Anonymous',
+                name: t('forum.anonymous', 'Anonymous'),
                 avatar: '../content/img/profil.png',
                 email: '',
                 role: 'user'
@@ -530,7 +531,7 @@
                     title,
                     category,
                     body: message,
-                    author: identity.isAnonymous ? 'Anonymous' : name,
+                    author: identity.isAnonymous ? t('forum.anonymous', 'Anonymous') : name,
                     avatar: identity.avatar,
                     email: identity.isAnonymous ? '' : identity.email,
                     role: identity.role || 'user',
@@ -584,7 +585,7 @@
                 thread.replies.push({
                     id: createId(),
                     body: message,
-                    author: replyIdentity.isAnonymous ? 'Anonymous' : replyIdentity.name,
+                    author: replyIdentity.isAnonymous ? t('forum.anonymous', 'Anonymous') : replyIdentity.name,
                     avatar: replyIdentity.avatar,
                     email: replyIdentity.isAnonymous ? '' : replyIdentity.email,
                     role: replyIdentity.role || 'user',
@@ -726,10 +727,10 @@
                     <div class="forum-thread-author">
                         <img src="${escapeHtml(thread.avatar || '../content/img/profil.png')}" alt="avatar" />
                         <div>
-                            <strong>${escapeHtml(thread.author || 'Guest')}</strong>
+                            <strong>${escapeHtml(thread.author || t('forum.anonymous', 'Anonymous'))}</strong>
                             <small>${formatDate(thread.createdAt)}</small>
                             ${thread.role === 'admin' ? `<span class="forum-thread-badge forum-thread-badge--admin">${t('profile.adminBadge', 'Admin')}</span>` : ''}
-                            ${thread.isAnonymous ? '<span class="forum-thread-badge">Anonymous</span>' : ''}
+                            ${thread.isAnonymous ? `<span class="forum-thread-badge">${t('forum.anonymous', 'Anonymous')}</span>` : ''}
                             ${thread.email && isAdmin ? `<a class="forum-profile-link" href="profile.html?user=${encodeURIComponent(thread.email)}">${t('profile.openProfile', 'View profile')}</a>` : ''}
                         </div>
                     </div>
@@ -754,7 +755,7 @@
                             <img src="${escapeHtml(reply.avatar || '../content/img/profil.png')}" alt="avatar" />
                             <div>
                                 <div class="forum-reply-header">
-                                    <strong>${escapeHtml(reply.author || 'Guest')}</strong>
+                                    <strong>${escapeHtml(reply.author || t('forum.anonymous', 'Anonymous'))}</strong>
                                     <small>${formatDate(reply.createdAt)}</small>
                                     ${reply.role === 'admin' ? `<span class="forum-thread-badge forum-thread-badge--admin">${t('profile.adminBadge', 'Admin')}</span>` : ''}
                                     ${reply.isAnonymous ? `<span class="forum-thread-badge">${t('forum.anonymous', 'Anonymous')}</span>` : ''}

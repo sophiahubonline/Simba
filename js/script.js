@@ -305,7 +305,7 @@ function ensureLanguageSwitcher(authSection) {
     const select = switcher.querySelector('select');
     const languageOptions = (window.SimbaI18n && window.SimbaI18n.languages)
         ? window.SimbaI18n.languages
-        : { en: 'English', de: 'Deutsch', fr: 'Français', es: 'Español', it: 'Italiano' };
+        : { en: 'English', de: 'Deutsch', fr: 'Français', es: 'Español', it: 'Italiano', zh: '中文' };
 
     if (label) label.textContent = simbaT('language.label', 'Language');
     if (select) {
