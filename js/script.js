@@ -380,11 +380,7 @@ function getHeaderProfileDisplayName(email) {
 function renderAuthenticatedHeader(authSection, userLike) {
     if (!authSection || !userLike || !userLike.email) return;
     const userEmail = String(userLike.email || '').trim();
-    const adminButton = typeof canManageAdminAccess === 'function' && canManageAdminAccess(userEmail)
-        ? `<button class="admin-panel-btn" type="button">Admin</button>`
-        : '';
-
-    authSection.innerHTML = `${adminButton}<button class="logout-btn">${simbaT('auth.signout', 'Sign out')}</button><span class="auth-profile-group"><button class="profile-btn" aria-label="${simbaT('nav.profile', 'Profile')}" type="button"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="${simbaT('nav.profile', 'Profile')}"/></button><span class="auth-user-card" role="tooltip"><span class="auth-user-card__label">${simbaT('profile.yourName', 'Profile')}</span><span class="auth-user-card__name"></span></span></span>`;
+    authSection.innerHTML = `<button class="logout-btn">${simbaT('auth.signout', 'Sign out')}</button><span class="auth-profile-group"><button class="profile-btn" aria-label="${simbaT('nav.profile', 'Profile')}" type="button"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="${simbaT('nav.profile', 'Profile')}"/></button><span class="auth-user-card" role="tooltip"><span class="auth-user-card__label">${simbaT('profile.yourName', 'Profile')}</span><span class="auth-user-card__name"></span></span></span>`;
 
     const nameNode = authSection.querySelector('.auth-user-card__name');
     if (nameNode) nameNode.textContent = getHeaderProfileDisplayName(userEmail);
