@@ -2131,6 +2131,12 @@
         const topicName = topic.title.toLowerCase();
         const language = getCurrentLanguageCode();
         const messages = {
+            en: [
+                `Your answers suggest a strong and recurring pattern around ${topicName}. That is not a diagnosis in itself, but it does suggest this theme is having a clear impact on how you think, feel, or respond in daily life. If this feels familiar, it may be worth looking more closely at the pattern, especially the situations that make it stronger and the moments when it eases.`,
+                `Your answers show a noticeable pattern around ${topicName}. Some of these signs seem present often enough to deserve attention, even if they do not define every situation. You may be dealing with a mix of established habits and stress-triggered reactions; noticing when this theme appears most and what intensifies it can help.`,
+                `Your answers suggest a few signs related to ${topicName}, but they do not seem especially central for now. This may mean the theme is present in a lighter or occasional way, or that it shows up mainly in certain contexts. It can still be useful to keep an eye on it, especially if the pattern becomes stronger over time or during stressful periods.`,
+                `Your answers suggest that ${topicName} is not strongly present at the moment. That does not mean the theme is unimportant, only that it does not stand out as a major pattern in this test right now. If things change later, the questions in this test can help you notice whether the pattern becomes more visible.`
+            ],
             fr: [
                 `Tes réponses indiquent un schéma fort et récurrent autour de ${topicName}. Cela ne constitue pas un diagnostic en soi, mais cela suggère que ce thème a un impact clair sur ta façon de penser, de ressentir ou de réagir au quotidien. Si cela te parle, il peut être utile d’explorer ce schéma plus précisément, surtout les situations qui le renforcent et les moments où il s’apaise.`,
                 `Tes réponses montrent un schéma notable autour de ${topicName}. Certains signes semblent présents assez souvent pour mériter ton attention, même s’ils ne dominent pas toutes les situations. Tu fais peut-être face à un mélange d’habitudes installées et de réactions déclenchées par le stress ; observer quand ce thème apparaît le plus et ce qui l’intensifie peut t’aider.`,
