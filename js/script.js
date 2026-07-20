@@ -216,7 +216,7 @@ async function saveThemeVisibilitySettings(settings) {
     const nextSettings = saveStoredThemeVisibilitySettings(settings);
     try {
         const currentUser = typeof getCurrentSessionUser === 'function' ? getCurrentSessionUser() : null;
-        if (currentUser && currentUser.email && isAdminUser(currentUser.email)) {
+        if (currentUser && currentUser.email && isPrimaryAdminAccount(currentUser.email)) {
             const response = await simbaApiFetch('/api/theme-visibility', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -249,7 +249,7 @@ function getThemeSlugFromLink(link) {
 function isThemeVisible(theme, userEmail) {
     const themeKey = typeof theme === 'string' ? theme : getThemeSlugFromLink(theme && theme.link);
     if (!themeKey) return true;
-    if (typeof userEmail === 'string' && isAdminUser(userEmail)) return true;
+    if (typeof userEmail === 'string' && isPrimaryAdminAccount(userEmail)) return true;
     const visibility = getCurrentThemeVisibilitySettings();
     return visibility[themeKey] !== false;
 }
@@ -365,6 +365,29 @@ function ensureLanguageSwitcher(authSection) {
             select.dataset.languageBound = 'true';
         }
     }
+}
+
+function getHeaderProfileDisplayName(email) {
+    const targetEmail = String(email || '').trim();
+    if (!targetEmail) return simbaT('profile.yourName', 'Profile');
+    const profile = getStoredProfile(targetEmail);
+    const profileName = profile && typeof profile.name === 'string' ? profile.name.trim() : '';
+    if (profileName) return profileName;
+    const localPart = targetEmail.split('@')[0] || '';
+    return localPart || simbaT('profile.yourName', 'Profile');
+}
+
+function renderAuthenticatedHeader(authSection, userLike) {
+    if (!authSection || !userLike || !userLike.email) return;
+    const userEmail = String(userLike.email || '').trim();
+    const adminButton = typeof canManageAdminAccess === 'function' && canManageAdminAccess(userEmail)
+        ? `<button class="admin-panel-btn" type="button">Admin</button>`
+        : '';
+
+    authSection.innerHTML = `${adminButton}<button class="logout-btn">${simbaT('auth.signout', 'Sign out')}</button><span class="auth-profile-group"><button class="profile-btn" aria-label="${simbaT('nav.profile', 'Profile')}" type="button"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="${simbaT('nav.profile', 'Profile')}"/></button><span class="auth-user-card" role="tooltip"><span class="auth-user-card__label">${simbaT('profile.yourName', 'Profile')}</span><span class="auth-user-card__name"></span></span></span>`;
+
+    const nameNode = authSection.querySelector('.auth-user-card__name');
+    if (nameNode) nameNode.textContent = getHeaderProfileDisplayName(userEmail);
 }
 
 function refreshNavbarDropdownLabels() {
@@ -713,6 +736,33 @@ function saveUserNotifications(email, notifications) {
     localStorage.setItem(SIMBA_NOTIFICATION_KEY_PREFIX + targetEmail, JSON.stringify(Array.isArray(notifications) ? notifications.slice(0, 50) : []));
 }
 
+function markUserNotificationsRead(email, predicate) {
+    const targetEmail = normalizeEmail(email);
+    if (!targetEmail) return 0;
+
+    const matcher = typeof predicate === 'function' ? predicate : () => true;
+    const notifications = getUserNotifications(targetEmail);
+    let updatedCount = 0;
+
+    const nextNotifications = notifications.map((notification) => {
+        if (!notification || notification.read || !matcher(notification)) {
+            return notification;
+        }
+
+        updatedCount += 1;
+        return { ...notification, read: true };
+    });
+
+    if (updatedCount > 0) {
+        saveUserNotifications(targetEmail, nextNotifications);
+        try {
+            window.dispatchEvent(new CustomEvent('simba-notifications-updated', { detail: { email: targetEmail } }));
+        } catch (error) {}
+    }
+
+    return updatedCount;
+}
+
 function addUserNotification(email, notification) {
     const targetEmail = normalizeEmail(email);
     if (!targetEmail) return null;
@@ -898,6 +948,12 @@ function buildNavbarDropdowns(force = false) {
         }
     }
 
+    const closeAllDropdownMenus = () => {
+        navList.querySelectorAll('.nav-menu-item.has-dropdown.is-open').forEach((openItem) => {
+            openItem.classList.remove('is-open');
+        });
+    };
+
     navList.querySelectorAll('.nav-menu-item.has-dropdown').forEach((item) => {
         if (item.dataset.dropdownBound === 'true') return;
         let closeTimer = null;
@@ -921,8 +977,43 @@ function buildNavbarDropdowns(force = false) {
         item.addEventListener('mouseleave', closeMenu);
         item.addEventListener('focusin', openMenu);
         item.addEventListener('focusout', closeMenu);
+
+        const triggerLink = item.querySelector(':scope > .nav-link--dropdown');
+        if (triggerLink && triggerLink.dataset.dropdownTapBound !== 'true') {
+            triggerLink.addEventListener('click', (event) => {
+                const isCompactLayout = window.matchMedia('(max-width: 1024px)').matches;
+                if (!isCompactLayout) return;
+
+                if (!item.classList.contains('is-open')) {
+                    event.preventDefault();
+                    closeAllDropdownMenus();
+                    openMenu();
+                    return;
+                }
+
+                closeMenu();
+            });
+            triggerLink.dataset.dropdownTapBound = 'true';
+        }
+
         item.dataset.dropdownBound = 'true';
     });
+
+    if (navList.dataset.dropdownGlobalBound !== 'true') {
+        document.addEventListener('click', (event) => {
+            if (!navList.contains(event.target)) {
+                closeAllDropdownMenus();
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closeAllDropdownMenus();
+            }
+        });
+
+        navList.dataset.dropdownGlobalBound = 'true';
+    }
 
     const currentPage = window.location.pathname.split('/').pop() || 'index.html';
     const activePage = currentPage === 'visio-room.html' ? 'visios.html' : currentPage;
@@ -946,9 +1037,7 @@ function updateAuthUI() {
         : (() => { try { return JSON.parse(localStorage.getItem('simba_user') || 'null'); } catch (e) { return null; } })();
 
     if (local && local.email) {
-        const adminBadge = local.role === 'admin' ? `<span class="user-role-badge user-role-badge--admin">Admin</span>` : '';
-        const adminButton = typeof canManageAdminAccess === 'function' && canManageAdminAccess(local.email) ? `<button class="admin-panel-btn" type="button">Admin</button>` : '';
-        authSection.innerHTML = `<span class="user-greeting">${local.email}${adminBadge}</span>${adminButton}<button class="logout-btn">${simbaT('auth.signout', 'Sign out')}</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
+        renderAuthenticatedHeader(authSection, local);
     } else {
         authSection.innerHTML = `<button class="sign-up-btn">${simbaT('auth.signup', 'Sign Up')}</button><button class="login-btn">${simbaT('auth.login', 'Login')}</button>`;
     }
@@ -1384,7 +1473,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const local = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(e){ return null; } })();
             console.debug('SIMBA_FORCE_LOCAL local user:', local);
             if (local && local.email) {
-                authSection.innerHTML = `<span class="user-greeting">${local.email}</span><button class="logout-btn">${simbaT('auth.signout', 'Sign out')}</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
+                renderAuthenticatedHeader(authSection, local);
             } else {
                 authSection.innerHTML = `<button class="sign-up-btn">${simbaT('auth.signup', 'Sign Up')}</button><button class="login-btn">${simbaT('auth.login', 'Login')}</button>`;
             }
@@ -1397,13 +1486,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (user && user.email) {
                     setCurrentSessionUser(user.email, { role: user.role || getLocalUserRole(user.email) });
                     void loadProfileForCurrentUser();
-                    // render profile button with avatar placeholder, refreshProfileButton() will update the image
-                    authSection.innerHTML = `<span class="user-greeting">${user.email}</span><button class="logout-btn">${simbaT('auth.signout', 'Sign out')}</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
+                    renderAuthenticatedHeader(authSection, user);
                 } else {
                     // fallback to localStorage user if present
                     const local = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(e){ return null; } })();
                         if (local && local.email) {
-                        authSection.innerHTML = `<span class="user-greeting">${local.email}</span><button class="logout-btn">${simbaT('auth.signout', 'Sign out')}</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
+                        renderAuthenticatedHeader(authSection, local);
                     } else {
                         authSection.innerHTML = `<button class="sign-up-btn">${simbaT('auth.signup', 'Sign Up')}</button><button class="login-btn">${simbaT('auth.login', 'Login')}</button>`;
                     }
@@ -1416,7 +1504,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // API unreachable — use localStorage fallback
                 const local = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(e){ return null; } })();
                 if (local && local.email) {
-                    authSection.innerHTML = `<span class="user-greeting">${local.email}</span><button class="logout-btn">${simbaT('auth.signout', 'Sign out')}</button><button class="profile-btn"><img class="profile-thumb" src="${getDefaultProfileAvatar()}" alt="profile"/></button>`;
+                    renderAuthenticatedHeader(authSection, local);
                 } else {
                     authSection.innerHTML = `<button class="sign-up-btn">${simbaT('auth.signup', 'Sign Up')}</button><button class="login-btn">${simbaT('auth.login', 'Login')}</button>`;
                 }
@@ -1461,11 +1549,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const img = btn.querySelector('img.profile-thumb');
         if (!img) return;
         const profile = await loadProfileForCurrentUser();
+        const current = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(e){ return null; } })();
         if (profile && profile.avatar) {
             // avatar may be a data URL or a relative path
             img.src = profile.avatar;
         } else {
             img.src = getDefaultProfileAvatar();
+        }
+        const nameNode = document.querySelector('.auth-user-card__name');
+        if (nameNode && current && current.email) {
+            const profileName = profile && typeof profile.name === 'string' ? profile.name.trim() : '';
+            nameNode.textContent = profileName || getHeaderProfileDisplayName(current.email);
         }
     }
 
@@ -1512,6 +1606,7 @@ document.addEventListener('DOMContentLoaded', function() {
             window.getForumThreads = getForumThreads;
             window.saveForumThreads = saveForumThreads;
             window.getUserNotifications = getUserNotifications;
+            window.markUserNotificationsRead = markUserNotificationsRead;
             window.addUserNotification = addUserNotification;
             window.getForumActivityForEmail = getForumActivityForEmail;
             window.setCurrentSessionUser = setCurrentSessionUser;

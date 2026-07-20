@@ -75,6 +75,9 @@ function sanitizeProfilePayload(input, existingProfile = {}) {
   if (Object.prototype.hasOwnProperty.call(source, 'avatar')) {
     nextProfile.avatar = String(source.avatar || '').slice(0, 2_000_000);
   }
+  if (Object.prototype.hasOwnProperty.call(source, 'banner')) {
+    nextProfile.banner = String(source.banner || '').slice(0, 2_000_000);
+  }
   if (Object.prototype.hasOwnProperty.call(source, 'scores')) {
     nextProfile.scores = Array.isArray(source.scores) ? source.scores.slice(0, 50) : [];
   }
@@ -267,13 +270,47 @@ app.post('/api/profile', async (req, res) => {
   if (!token) return res.status(401).json({ error: 'Not authenticated' });
   const body = req.body || {};
   const incomingProfile = body && typeof body.profile === 'object' ? body.profile : body;
+  const currentPassword = String(body.currentPassword || body.current_password || '');
+  const newPassword = String(body.newPassword || body.new_password || '');
   jwt.verify(token, JWT_SECRET, async (err, payload) => {
     if (err) return res.status(401).json({ error: 'Invalid token' });
     const user = await getUserById(payload.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
     const nextProfile = sanitizeProfilePayload(incomingProfile, user.profile || {});
-    const updated = await updateUser(user.id, { profile: nextProfile });
-    return res.json({ ok: true, profile: updated.profile });
+    const fields = { profile: nextProfile };
+
+    if (newPassword) {
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: 'Password too short' });
+      }
+      const match = await bcrypt.compare(currentPassword, user.password_hash);
+      if (!match) {
+        return res.status(401).json({ error: 'Current password is incorrect' });
+      }
+      fields.password_hash = await bcrypt.hash(newPassword, 10);
+    }
+
+    const updated = await updateUser(user.id, fields);
+    return res.json({ ok: true, profile: updated.profile, passwordChanged: !!fields.password_hash });
+  });
+});
+
+app.post('/api/change-password', async (req, res) => {
+  const token = req.cookies && req.cookies.token;
+  if (!token) return res.status(401).json({ error: 'Not authenticated' });
+  const { currentPassword, newPassword } = req.body || {};
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Missing current or new password' });
+  if (String(newPassword).length < 6) return res.status(400).json({ error: 'Password too short' });
+
+  jwt.verify(token, JWT_SECRET, async (err, payload) => {
+    if (err) return res.status(401).json({ error: 'Invalid token' });
+    const user = await getUserById(payload.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const match = await bcrypt.compare(String(currentPassword), user.password_hash);
+    if (!match) return res.status(401).json({ error: 'Current password is incorrect' });
+    const hash = await bcrypt.hash(String(newPassword), 10);
+    await updateUser(user.id, { password_hash: hash });
+    return res.json({ ok: true });
   });
 });
 

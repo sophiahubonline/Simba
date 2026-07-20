@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -80,13 +80,13 @@
         <div class="footer-container">
             <div class="footer-content">
                 <p>&copy; 2024 SIMBA PROJECT - Hero's Journey. All rights reserved.</p>
-                <p class="footer-links"><a href="impressum.html">Impressum</a> | <a href="datenschutz.html">Datenschutzerklärung</a></p>
+                <p class="footer-links"><a href="impressum.html">Impressum</a> | <a href="datenschutz.html">DatenschutzerklÃ¤rung</a></p>
             </div>
         </div>
     </footer>
 
-    <script src="../js/i18n.js?v=20260715"></script>
-    <script src="../js/script.js?v=20260715"></script>
+    <script src="../js/i18n.js?v=20260720"></script>
+    <script src="../js/script.js?v=20260720"></script>
     <script>
         const apiFetch = (url, options) => (typeof window.simbaApiFetch === 'function' ? window.simbaApiFetch(url, options) : fetch(url, options));
         const t = (key, fallback = '') => (window.SimbaI18n && typeof window.SimbaI18n.getTranslation === 'function') ? window.SimbaI18n.getTranslation(key, fallback) : fallback;
@@ -169,6 +169,18 @@
             if (hint) hint.textContent = t('messages.hint', 'Open a private conversation and reply without posting publicly.');
             if (input) input.placeholder = t('messages.writePrivateMessage', 'Write a private message...');
             if (sendButton) sendButton.textContent = t('messages.sendMessage', 'Send message');
+        }
+
+        function countUnreadPrivateMessages(email) {
+            const notifications = typeof window.getUserNotifications === 'function' ? window.getUserNotifications(email) : [];
+            return Array.isArray(notifications)
+                ? notifications.filter((notification) => notification && notification.type === 'private-message' && !notification.read).length
+                : 0;
+        }
+
+        function markCurrentUserPrivateMessagesAsRead() {
+            if (typeof window.markUserNotificationsRead !== 'function' || !currentUserEmail) return;
+            window.markUserNotificationsRead(currentUserEmail, (notification) => notification && notification.type === 'private-message');
         }
 
         function getLocalUsers() {
@@ -368,7 +380,7 @@
 
             const visibleThreads = getVisibleThreads();
             if (threadCount) threadCount.textContent = String(visibleThreads.length);
-            if (unreadCount) unreadCount.textContent = '0';
+            if (unreadCount) unreadCount.textContent = String(countUnreadPrivateMessages(currentUserEmail));
             if (avatar) avatar.src = getAvatarForEmail(currentUserEmail);
             if (name) name.textContent = currentUserRole === 'admin' ? t('messages.adminInbox', 'Admin inbox') : (getStoredProfile(currentUserEmail).name || currentUserEmail || t('messages.pageTitle', 'Messages'));
             if (bio) bio.textContent = currentUserRole === 'admin' ? t('messages.choosePerson', 'Choose a person to see the discussion.') : t('messages.directToAdmins', 'Private conversation with the admin.');
@@ -444,6 +456,7 @@
             currentUserEmail = normalizeEmail(currentSession.email);
             currentUserRole = currentSession.role || 'user';
             await syncPrivateMessagesFromServer();
+            markCurrentUserPrivateMessagesAsRead();
             const requestedEmail = new URL(window.location.href).searchParams.get('user');
             activeThreadEmail = currentUserRole === 'admin' ? normalizeEmail(requestedEmail || activeThreadEmail || '') : currentUserEmail;
             if (currentUserRole === 'admin' && !activeThreadEmail) {
@@ -465,9 +478,13 @@
         });
 
         window.addEventListener('storage', function(event) {
-            if (event && event.key === SIMBA_PRIVATE_MESSAGES_KEY) {
+            if (event && (event.key === SIMBA_PRIVATE_MESSAGES_KEY || (event.key && event.key.indexOf('simba_notifications_') === 0))) {
                 refreshPage();
             }
+        });
+
+        window.addEventListener('simba-notifications-updated', function() {
+            refreshPage();
         });
 
         document.getElementById('messages_refresh_btn')?.addEventListener('click', function() {
@@ -531,3 +548,4 @@
     </script>
 </body>
 </html>
+

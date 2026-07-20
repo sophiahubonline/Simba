@@ -41,7 +41,7 @@
                 <div style="margin-top:1rem" class="profile-section">
                     <div style="font-weight:700;color:var(--color-navy);margin-bottom:6px" data-i18n="profile.quickStats">Quick stats</div>
                     <div class="profile-grid">
-                        <div class="profile-stat"><h4 data-i18n="profile.threadCount">Topics</h4><div id="profile_stat_threads">0</div></div>
+                        <div class="profile-stat"><h4 data-i18n="profile.postsLabel">Posts</h4><div id="profile_stat_threads">0</div></div>
                         <div class="profile-stat"><h4 data-i18n="profile.testsDone">Tests done</h4><div id="profile_stat_tests">0</div></div>
                         <div class="profile-stat"><h4 data-i18n="profile.unreadMessages">Unread messages</h4><div id="profile_stat_unread">0</div></div>
                     </div>
@@ -63,9 +63,62 @@
                     <h3 data-i18n="profile.about">About</h3>
                     <p id="about_text" data-i18n="profile.aboutBody">This is your profile. You can update your display name, bio and avatar.</p>
                 </div>
-                <div id="profile_notifications_section" class="profile-section">
-                    <h3 data-i18n="profile.notifications">Notifications</h3>
-                    <ul id="profile_notifications_list" class="profile-history"></ul>
+                <div id="profile_notifications_section" class="profile-section profile-rubrics-section">
+                    <div class="profile-section__header">
+                        <div>
+                            <h3 data-i18n="profile.activityAndHistory">Activity & history</h3>
+                            <div class="profile-section__hint" data-i18n="profile.activityAndHistoryHint">Notifications, forum activity and score history.</div>
+                        </div>
+                    </div>
+                    <div class="profile-rubrics-grid">
+                        <article class="profile-rubric-card">
+                            <div class="profile-rubric-card__head">
+                                <div>
+                                    <h3 data-i18n="profile.notifications">Notifications</h3>
+                                    <p data-i18n="profile.notificationsDescription">Recent updates tied to your account.</p>
+                                </div>
+                                <button id="profile_notifications_toggle_btn" class="profile-section-toggle" type="button" data-i18n="profile.view">View</button>
+                            </div>
+                            <div id="profile_notifications_panel" class="profile-rubric-panel" hidden>
+                                <ul id="profile_notifications_list" class="profile-history"></ul>
+                                <button id="profile_notifications_more_btn" class="score-history-toggle" type="button" hidden data-i18n="profile.seeMore">See more</button>
+                            </div>
+                        </article>
+                        <article id="admin_activity_section" class="profile-rubric-card" hidden>
+                            <div class="profile-rubric-card__head">
+                                <div>
+                                    <h3 data-i18n="profile.forumActivity">Forum activity</h3>
+                                    <p data-i18n="profile.forumActivityDescription">Active and deleted posts from the forum.</p>
+                                </div>
+                                <button id="admin_activity_toggle_btn" class="profile-section-toggle" type="button" data-i18n="profile.view">View</button>
+                            </div>
+                            <div id="admin_activity_panel" class="profile-rubric-panel" hidden style="display:grid;gap:1rem">
+                                <div>
+                                    <h4 style="margin:0 0 0.5rem" data-i18n="profile.activePosts">Active posts</h4>
+                                    <ul id="admin_active_posts" class="profile-history"></ul>
+                                </div>
+                                <div>
+                                    <h4 style="margin:0 0 0.5rem" data-i18n="profile.deletedPosts">Deleted posts</h4>
+                                    <ul id="admin_deleted_posts" class="profile-history"></ul>
+                                </div>
+                                <button id="admin_activity_more_btn" class="score-history-toggle" type="button" hidden data-i18n="profile.seeMore">See more</button>
+                            </div>
+                        </article>
+                        <article class="profile-rubric-card">
+                            <div class="profile-rubric-card__head">
+                                <div>
+                                    <h3 data-i18n="profile.scoreHistory">Score history</h3>
+                                    <p data-i18n="profile.scoreHistoryDescription">Your test results over time.</p>
+                                </div>
+                                <button id="scores_section_toggle_btn" class="profile-section-toggle" type="button" data-i18n="profile.view">View</button>
+                            </div>
+                            <div id="scores_panel" class="profile-rubric-panel" hidden>
+                                <p id="scores_count_label" data-i18n="profile.noTestsYet">No tests yet</p>
+                                <ul id="scores_list" class="profile-history"></ul>
+                                <button id="scores_toggle_btn" class="score-history-toggle" type="button" hidden data-i18n="profile.seeMore">See more</button>
+                            </div>
+                        </article>
+                    </div>
                 </div>
                 <div id="admin_tools_section" class="profile-section" hidden>
                     <h3 data-i18n="profile.adminTools">Admin tools</h3>
@@ -108,25 +161,6 @@
                         <button id="profile_back_to_me_btn" class="btn-edit" type="button" data-i18n="profile.backToMyProfile">Back to my profile</button>
                     </div>
                 </div>
-                <div id="admin_activity_section" class="profile-section" hidden>
-                    <h3 data-i18n="profile.forumActivity">Forum activity</h3>
-                    <div style="display:grid;gap:1rem">
-                        <div>
-                            <h4 style="margin:0 0 0.5rem" data-i18n="profile.activePosts">Active posts</h4>
-                            <ul id="admin_active_posts" class="profile-history"></ul>
-                        </div>
-                        <div>
-                            <h4 style="margin:0 0 0.5rem" data-i18n="profile.deletedPosts">Deleted posts</h4>
-                            <ul id="admin_deleted_posts" class="profile-history"></ul>
-                        </div>
-                    </div>
-                </div>
-                <div class="profile-section">
-                    <h3 data-i18n="profile.scoreHistory">Score history</h3>
-                    <p id="scores_count_label" data-i18n="profile.noTestsYet">No tests yet</p>
-                    <ul id="scores_list" class="profile-history"></ul>
-                    <button id="scores_toggle_btn" class="score-history-toggle" type="button" hidden data-i18n="profile.seeMore">See more</button>
-                </div>
             </section>
         </div>
     </main>
@@ -151,14 +185,13 @@
         </div>
     </footer>
 
-    <script src="../js/i18n.js?v=20260715"></script>
-    <script src="../js/script.js?v=20260715"></script>
+    <script src="../js/i18n.js?v=20260720"></script>
+    <script src="../js/script.js?v=20260720"></script>
     <script>
         const apiFetch = (url, options) => (typeof window.simbaApiFetch === 'function' ? window.simbaApiFetch(url, options) : fetch(url, options));
         const apiUrl = (path) => (typeof window.simbaApiUrl === 'function' ? window.simbaApiUrl(path) : path);
         const t = (key, fallback = '') => (window.SimbaI18n && typeof window.SimbaI18n.getTranslation === 'function') ? window.SimbaI18n.getTranslation(key, fallback) : fallback;
         const getLocale = () => (window.SimbaI18n && typeof window.SimbaI18n.getLocale === 'function') ? window.SimbaI18n.getLocale(window.SimbaI18n.getCurrentLanguage()) : 'en-US';
-        let scoreHistoryExpanded = false;
         let viewingEmail = '';
         let viewingProfileIsAdminSelected = false;
         let forumActivityHydrationPromise = null;
@@ -166,6 +199,11 @@
         let profileLookupAutocompleteBound = false;
         let profileAdminLookupAutocompleteBound = false;
         let themeVisibilityPendingSettings = null;
+        const profileCardStates = {
+            notifications: { open: false, visibleCount: 5 },
+            forum: { open: false, visibleCount: 5 },
+            scores: { open: false, visibleCount: 5 }
+        };
 
         const THEME_VISIBILITY_ITEMS = [
             { key: 'attachment', label: (window.SimbaI18n && typeof window.SimbaI18n.getThemeCard === 'function' ? window.SimbaI18n.getThemeCard({ link: 'attachment.html' }).name : 'Attachment') },
@@ -560,21 +598,57 @@
             profileLookupAutocompleteBound = true;
         }
 
+        function getProfileCardState(key) {
+            if (!profileCardStates[key]) {
+                profileCardStates[key] = { open: false, visibleCount: 5 };
+            }
+            return profileCardStates[key];
+        }
+
+        function renderProfileCardToggle(button, key) {
+            if (!button) return;
+            const state = getProfileCardState(key);
+            button.textContent = state.open ? t('profile.hide', 'Hide') : t('profile.view', 'View');
+            button.classList.toggle('is-expanded', state.open);
+        }
+
+        function renderProfilePagingButton(button, key, totalCount) {
+            if (!button) return;
+            const state = getProfileCardState(key);
+            const hasMoreThanFive = totalCount > 5;
+            if (!state.open || !hasMoreThanFive) {
+                button.hidden = true;
+                return;
+            }
+
+            button.hidden = false;
+            button.textContent = state.visibleCount >= totalCount ? t('profile.showLess', 'Show less') : t('profile.seeMore', 'See more');
+            button.classList.toggle('is-expanded', state.visibleCount >= totalCount && totalCount > 5);
+        }
+
         function renderScoreHistory(scores) {
             const ul = document.getElementById('scores_list');
             const toggleBtn = document.getElementById('scores_toggle_btn');
+            const sectionToggleBtn = document.getElementById('scores_section_toggle_btn');
+            const panel = document.getElementById('scores_panel');
             const countLabel = document.getElementById('scores_count_label');
             if (!ul) return;
 
             const safeScores = getScoreHistoryCopy(scores);
-            const visibleScores = scoreHistoryExpanded ? safeScores : safeScores.slice(0, 5);
+            const state = getProfileCardState('scores');
+            const visibleCount = state.open ? state.visibleCount : 5;
+            const visibleScores = safeScores.slice(0, visibleCount);
 
             ul.innerHTML = '';
+
+            if (panel) panel.hidden = !state.open;
+
+            renderProfileCardToggle(sectionToggleBtn, 'scores');
 
             if (countLabel) {
                 countLabel.textContent = safeScores.length === 0
                     ? t('profile.noTestsYet', 'No tests yet')
-                    : scoreHistoryExpanded
+                    : state.visibleCount >= safeScores.length && safeScores.length > 5
                         ? t('profile.showingAll', 'Showing all {count} results').replace('{count}', safeScores.length)
                         : t('profile.showingRecent', 'Showing your 5 most recent results');
             }
@@ -591,24 +665,27 @@
                 });
             }
 
-            if (toggleBtn) {
-                const hasMoreThanFive = safeScores.length > 5;
-                toggleBtn.hidden = !hasMoreThanFive;
-                toggleBtn.textContent = scoreHistoryExpanded ? t('profile.showLess', 'Show less') : t('profile.seeMore', 'See more');
-                toggleBtn.classList.toggle('is-expanded', scoreHistoryExpanded);
-            }
+            renderProfilePagingButton(toggleBtn, 'scores', safeScores.length);
         }
 
         function renderNotifications(email) {
             const list = document.getElementById('profile_notifications_list');
-            const section = document.getElementById('profile_notifications_section');
-            if (!list || !section) return;
+            const panel = document.getElementById('profile_notifications_panel');
+            const sectionToggleBtn = document.getElementById('profile_notifications_toggle_btn');
+            const moreBtn = document.getElementById('profile_notifications_more_btn');
+            if (!list || !panel) return;
 
             const notifications = typeof window.getUserNotifications === 'function' ? window.getUserNotifications(email) : [];
+            const state = getProfileCardState('notifications');
+            const visibleNotifications = notifications.slice(0, state.visibleCount);
             list.innerHTML = '';
+
+            panel.hidden = !state.open;
+            renderProfileCardToggle(sectionToggleBtn, 'notifications');
 
             if (!notifications.length) {
                 list.innerHTML = `<li>${t('profile.noNotifications', 'No notifications yet')}</li>`;
+                renderProfilePagingButton(moreBtn, 'notifications', notifications.length);
                 return;
             }
 
@@ -632,23 +709,33 @@
                 return notification.title || t('profile.notification', 'Notification');
             }
 
-            notifications.forEach((notification) => {
+            visibleNotifications.forEach((notification) => {
                 const item = document.createElement('li');
                 const reason = notification.reason ? ` ${notification.reason}` : '';
                 item.innerHTML = `<strong>${getNotificationTitle(notification)}</strong><div>${notification.body || ''}${reason ? `<br><small>${reason}</small>` : ''}</div><small>${formatDate(notification.createdAt)}</small>`;
                 list.appendChild(item);
             });
+
+            renderProfilePagingButton(moreBtn, 'notifications', notifications.length);
         }
 
         function renderForumActivity(email) {
             const activitySection = document.getElementById('admin_activity_section');
+            const activityPanel = document.getElementById('admin_activity_panel');
+            const sectionToggleBtn = document.getElementById('admin_activity_toggle_btn');
+            const moreBtn = document.getElementById('admin_activity_more_btn');
             const activeList = document.getElementById('admin_active_posts');
             const deletedList = document.getElementById('admin_deleted_posts');
-            if (!activitySection || !activeList || !deletedList) return;
+            if (!activitySection || !activityPanel || !activeList || !deletedList) return;
 
             const activity = typeof window.getForumActivityForEmail === 'function' ? window.getForumActivityForEmail(email) : { activePosts: [], deletedPosts: [] };
+            const state = getProfileCardState('forum');
+            const visibleCount = state.open ? state.visibleCount : 5;
             activeList.innerHTML = '';
             deletedList.innerHTML = '';
+
+            activityPanel.hidden = !state.open;
+            renderProfileCardToggle(sectionToggleBtn, 'forum');
 
             const renderPostItem = (post, isDeleted) => {
                 const li = document.createElement('li');
@@ -663,21 +750,23 @@
             if (!activity.activePosts.length) {
                 activeList.innerHTML = `<li>${t('profile.noPostsYet', 'No posts yet')}</li>`;
             } else {
-                activity.activePosts.forEach((post) => activeList.appendChild(renderPostItem(post, false)));
+                activity.activePosts.slice(0, visibleCount).forEach((post) => activeList.appendChild(renderPostItem(post, false)));
             }
 
             if (!activity.deletedPosts.length) {
                 deletedList.innerHTML = `<li>${t('profile.noDeletedPostsYet', 'No deleted posts yet')}</li>`;
             } else {
-                activity.deletedPosts.forEach((post) => deletedList.appendChild(renderPostItem(post, true)));
+                activity.deletedPosts.slice(0, visibleCount).forEach((post) => deletedList.appendChild(renderPostItem(post, true)));
             }
+
+            renderProfilePagingButton(moreBtn, 'forum', Math.max(activity.activePosts.length, activity.deletedPosts.length));
         }
 
-        function countThreadsPosted(email) {
+        function countForumMessagesPosted(email) {
             const activity = typeof window.getForumActivityForEmail === 'function' ? window.getForumActivityForEmail(email) : { activePosts: [], deletedPosts: [] };
-            const activeThreads = Array.isArray(activity.activePosts) ? activity.activePosts.filter((post) => post && post.type === 'thread').length : 0;
-            const deletedThreads = Array.isArray(activity.deletedPosts) ? activity.deletedPosts.filter((post) => post && post.type === 'thread').length : 0;
-            return activeThreads + deletedThreads;
+            const activeCount = Array.isArray(activity.activePosts) ? activity.activePosts.length : 0;
+            const deletedCount = Array.isArray(activity.deletedPosts) ? activity.deletedPosts.length : 0;
+            return activeCount + deletedCount;
         }
 
         function countUnreadMessages(email) {
@@ -694,7 +783,7 @@
             if (!threadsNode || !testsNode || !unreadNode) return;
 
             const scores = Array.isArray(profile && profile.scores) ? profile.scores : [];
-            threadsNode.textContent = String(countThreadsPosted(email));
+            threadsNode.textContent = String(countForumMessagesPosted(email));
             testsNode.textContent = String(scores.length);
             unreadNode.textContent = String(countUnreadMessages(email));
         }
@@ -824,7 +913,6 @@
         });
 
         window.addEventListener('simba-language-changed', async ()=>{
-            scoreHistoryExpanded = false;
             await loadProfilePage();
         });
 
@@ -833,11 +921,30 @@
             renderThemeVisibilityControls();
         });
 
+        window.addEventListener('storage', function(event) {
+            if (!event || !event.key) return;
+            if (event.key === 'simba_user' || event.key.indexOf('simba_notifications_') === 0) {
+                void loadProfilePage();
+            }
+        });
+
+        window.addEventListener('simba-notifications-updated', function() {
+            void loadProfilePage();
+        });
+
         document.addEventListener('click', function(e){
             if (e.target && e.target.id === 'edit_profile_btn'){
                 e.preventDefault();
                 const editor = document.getElementById('profile_editor');
-                if (editor) editor.style.display = editor.style.display === 'none' ? 'block' : 'none';
+                if (editor) {
+                    const willOpen = editor.style.display === 'none' || !editor.style.display;
+                    editor.style.display = willOpen ? 'block' : 'none';
+                    if (willOpen) {
+                        window.requestAnimationFrame(() => {
+                            editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        });
+                    }
+                }
             }
             if (e.target && e.target.id === 'cancel_profile_btn'){
                 e.preventDefault();
@@ -999,11 +1106,78 @@
         document.addEventListener('click', function(e) {
             if (e.target && e.target.id === 'scores_toggle_btn') {
                 e.preventDefault();
-                scoreHistoryExpanded = !scoreHistoryExpanded;
                 const current = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(err){ return null; } })();
                 if (!current || !current.email) return;
                 const profile = (()=>{ try { return JSON.parse(localStorage.getItem('simba_profile_' + current.email) || '{}'); } catch(err){ return {}; } })();
-                renderScoreHistory(Array.isArray(profile.scores) ? profile.scores : []);
+                const scores = Array.isArray(profile.scores) ? profile.scores : [];
+                const state = getProfileCardState('scores');
+                if (state.visibleCount >= scores.length && scores.length > 5) {
+                    state.visibleCount = 5;
+                } else {
+                    state.visibleCount = Math.min(state.visibleCount + 5, scores.length);
+                }
+                renderScoreHistory(scores);
+            }
+            if (e.target && e.target.id === 'scores_section_toggle_btn') {
+                e.preventDefault();
+                const current = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(err){ return null; } })();
+                if (!current || !current.email) return;
+                const profile = (()=>{ try { return JSON.parse(localStorage.getItem('simba_profile_' + current.email) || '{}'); } catch(err){ return {}; } })();
+                const scores = Array.isArray(profile.scores) ? profile.scores : [];
+                const state = getProfileCardState('scores');
+                state.open = !state.open;
+                if (!state.open) state.visibleCount = 5;
+                renderScoreHistory(scores);
+            }
+            if (e.target && e.target.id === 'profile_notifications_toggle_btn') {
+                e.preventDefault();
+                const current = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(err){ return null; } })();
+                if (!current || !current.email) return;
+                const state = getProfileCardState('notifications');
+                state.open = !state.open;
+                if (!state.open) state.visibleCount = 5;
+                if (state.open && typeof window.markUserNotificationsRead === 'function') {
+                    window.markUserNotificationsRead(viewingEmail || current.email, (notification) => notification && notification.type === 'private-message');
+                    const unreadNode = document.getElementById('profile_stat_unread');
+                    if (unreadNode) unreadNode.textContent = String(countUnreadMessages(viewingEmail || current.email));
+                }
+                renderNotifications(viewingEmail || current.email);
+            }
+            if (e.target && e.target.id === 'profile_notifications_more_btn') {
+                e.preventDefault();
+                const current = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(err){ return null; } })();
+                if (!current || !current.email) return;
+                const state = getProfileCardState('notifications');
+                const notifications = typeof window.getUserNotifications === 'function' ? window.getUserNotifications(viewingEmail || current.email) : [];
+                if (state.visibleCount >= notifications.length && notifications.length > 5) {
+                    state.visibleCount = 5;
+                } else {
+                    state.visibleCount = Math.min(state.visibleCount + 5, notifications.length);
+                }
+                renderNotifications(viewingEmail || current.email);
+            }
+            if (e.target && e.target.id === 'admin_activity_toggle_btn') {
+                e.preventDefault();
+                const current = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(err){ return null; } })();
+                if (!current || !current.email) return;
+                const state = getProfileCardState('forum');
+                state.open = !state.open;
+                if (!state.open) state.visibleCount = 5;
+                renderForumActivity(viewingEmail || current.email);
+            }
+            if (e.target && e.target.id === 'admin_activity_more_btn') {
+                e.preventDefault();
+                const current = (()=>{ try { return JSON.parse(localStorage.getItem('simba_user')||'null'); } catch(err){ return null; } })();
+                if (!current || !current.email) return;
+                const activity = typeof window.getForumActivityForEmail === 'function' ? window.getForumActivityForEmail(viewingEmail || current.email) : { activePosts: [], deletedPosts: [] };
+                const maxCount = Math.max(Array.isArray(activity.activePosts) ? activity.activePosts.length : 0, Array.isArray(activity.deletedPosts) ? activity.deletedPosts.length : 0);
+                const state = getProfileCardState('forum');
+                if (state.visibleCount >= maxCount && maxCount > 5) {
+                    state.visibleCount = 5;
+                } else {
+                    state.visibleCount = Math.min(state.visibleCount + 5, maxCount);
+                }
+                renderForumActivity(viewingEmail || current.email);
             }
         });
     </script>

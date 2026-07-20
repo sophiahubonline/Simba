@@ -1,6 +1,7 @@
 (function() {
     const STORAGE_KEY = 'simba_forum_threads';
     const MAX_THREADS = 100;
+    const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024;
     const MODERATION_REASONS = [
         { key: 'inappropriate', label: 'Inappropriate' },
         { key: 'harassment', label: 'Harassment' },
@@ -98,9 +99,13 @@
 
     async function syncForumThreadsFromServer() {
         try {
-            const ping = await apiFetch('/api/ping');
-            if (!ping.ok) return loadThreads();
-            const res = await apiFetch('/api/forum/threads', { credentials: 'include' });
+            const controller = typeof AbortController === 'function' ? new AbortController() : null;
+            const timeoutId = controller ? window.setTimeout(() => controller.abort(), 2200) : null;
+            const res = await apiFetch('/api/forum/threads', {
+                credentials: 'include',
+                signal: controller ? controller.signal : undefined
+            });
+            if (timeoutId) window.clearTimeout(timeoutId);
             if (!res.ok) return loadThreads();
             const data = await res.json();
             const items = Array.isArray(data.threads) ? data.threads.slice(0, MAX_THREADS) : [];
@@ -386,23 +391,15 @@
     }
 
     async function renderForum() {
+        if (renderForum.__running) {
+            renderForum.__queued = true;
+            return;
+        }
+        renderForum.__running = true;
+
+        try {
         const app = document.getElementById('forumApp');
         if (!app) return;
-
-        await syncForumThreadsFromServer();
-
-        const currentSession = (() => { try { return JSON.parse(localStorage.getItem('simba_user') || 'null'); } catch (error) { return null; } })();
-        if (!currentSession || !currentSession.email) {
-            try {
-                const meRes = await apiFetch('/api/me', { credentials: 'include' });
-                if (meRes.ok) {
-                    const meData = await meRes.json();
-                    if (meData && meData.user && meData.user.email) {
-                        localStorage.setItem('simba_user', JSON.stringify(meData.user));
-                    }
-                }
-            } catch (error) {}
-        }
 
         const identity = getPostingIdentity();
         const copy = getForumCopy();
@@ -518,6 +515,10 @@
 
                 let attachment = null;
                 if (attachmentFile) {
+                    if (attachmentFile.size > MAX_ATTACHMENT_BYTES) {
+                        if (note) note.textContent = t('forum.attachmentTooLarge', 'The attachment is too large.');
+                        return;
+                    }
                     try {
                         attachment = await readAttachmentFile(attachmentFile);
                     } catch (error) {
@@ -599,6 +600,46 @@
                 void renderForum();
             });
         });
+
+        if (!renderForum.__hydrating) {
+            renderForum.__hydrating = true;
+            const previousSerialized = JSON.stringify(loadThreads());
+            void syncForumThreadsFromServer()
+                .then((items) => {
+                    const nextSerialized = JSON.stringify(Array.isArray(items) ? items : []);
+                    if (nextSerialized !== previousSerialized) {
+                        void renderForum();
+                    }
+                })
+                .finally(() => {
+                    renderForum.__hydrating = false;
+                });
+        }
+
+        const currentSession = (() => { try { return JSON.parse(localStorage.getItem('simba_user') || 'null'); } catch (error) { return null; } })();
+        if ((!currentSession || !currentSession.email) && !renderForum.__syncingSession) {
+            renderForum.__syncingSession = true;
+            void apiFetch('/api/me', { credentials: 'include' })
+                .then((meRes) => (meRes && meRes.ok ? meRes.json() : null))
+                .then((meData) => {
+                    if (meData && meData.user && meData.user.email) {
+                        localStorage.setItem('simba_user', JSON.stringify(meData.user));
+                        void renderForum();
+                    }
+                })
+                .catch(() => {})
+                .finally(() => {
+                    renderForum.__syncingSession = false;
+                });
+        }
+
+        } finally {
+            renderForum.__running = false;
+            if (renderForum.__queued) {
+                renderForum.__queued = false;
+                void renderForum();
+            }
+        }
 
     }
 

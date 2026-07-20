@@ -47,6 +47,28 @@
             .replaceAll("'", '&#39;');
     }
 
+    function getLocalizedRejectionReason(reason) {
+        const raw = String(reason || '').trim();
+        if (!raw) return '';
+
+        const normalized = raw
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim();
+
+        const isKnownTimeConflict = normalized === 'session in the same time than an other'
+            || normalized === 'session at the same time as another'
+            || normalized === 'a session is already scheduled at this time'
+            || normalized === 'session already scheduled at this time'
+            || normalized === 'time conflict';
+
+        if (isKnownTimeConflict) {
+            return t('visios.timeConflict', 'A session is already scheduled at this time.');
+        }
+
+        return raw;
+    }
+
     function isMeetingPending(meeting) {
         return normalizeApprovalStatus(meeting && meeting.approvalStatus) === 'pending';
     }
@@ -218,6 +240,22 @@
         if (Number.isNaN(startsAt.getTime())) {
             return { ok: false, reason: 'invalid-date' };
         }
+        const startsAtMs = startsAt.getTime();
+        const endsAtMs = startsAtMs + Math.max(15, durationMinutes || 45) * 60000;
+
+        const hasOverlap = loadMeetings()
+            .map(normalizeMeeting)
+            .filter((item) => normalizeApprovalStatus(item.approvalStatus) !== 'rejected')
+            .some((item) => {
+                const itemStart = new Date(item.startsAt).getTime();
+                const itemEnd = itemStart + (Math.max(15, Number(item.durationMinutes) || 45) * 60000);
+                if (Number.isNaN(itemStart) || Number.isNaN(itemEnd)) return false;
+                return startsAtMs < itemEnd && itemStart < endsAtMs;
+            });
+
+        if (hasOverlap) {
+            return { ok: false, reason: 'time-conflict' };
+        }
 
         const current = getCurrentSessionUser();
         const meeting = normalizeMeeting({
@@ -388,7 +426,7 @@
             const approvalNote = approvalStatus === 'pending'
                 ? `<p class="visio-card__note">${t('visios.requestPending', 'This request is waiting for admin approval.')}</p>`
                 : approvalStatus === 'rejected'
-                    ? `<p class="visio-card__note visio-card__note--warning">${t('visios.requestRejected', 'This request was rejected.')} ${meeting.rejectionReason ? t('visios.rejectionReason', 'Reason: {reason}').replace('{reason}', escapeHtml(meeting.rejectionReason)) : ''}</p>`
+                    ? `<p class="visio-card__note visio-card__note--warning">${t('visios.requestRejected', 'This request was rejected.')} ${meeting.rejectionReason ? t('visios.rejectionReason', 'Reason: {reason}').replace('{reason}', escapeHtml(getLocalizedRejectionReason(meeting.rejectionReason))) : ''}</p>`
                     : '';
             const invitedLabel = meeting.visibility === 'private' && meeting.invitees.length
                 ? `<p class="visio-card__invitees"><strong>${t('visios.inviteesLabel', 'Invited emails')}:</strong> ${meeting.invitees.map((email) => `<span>${email}</span>`).join(', ')}</p>`
@@ -618,6 +656,8 @@
                 if (message) {
                     message.textContent = result.reason === 'invalid-date'
                         ? t('visios.invalidDate', 'Invalid date or time.')
+                        : result.reason === 'time-conflict'
+                            ? t('visios.timeConflict', 'A session is already scheduled at this time.')
                         : t('visios.missingFields', 'Please fill in the title, date, and time.');
                 }
                 return;
@@ -720,6 +760,8 @@
                     if (requestMessage) {
                         requestMessage.textContent = result.reason === 'invalid-date'
                             ? t('visios.invalidDate', 'Invalid date or time.')
+                            : result.reason === 'time-conflict'
+                                ? t('visios.timeConflict', 'A session is already scheduled at this time.')
                             : t('visios.missingFields', 'Please fill in the title, date, and time.');
                     }
                     return;
@@ -807,7 +849,7 @@
         }
 
         if (approvalStatus !== 'approved') {
-            const rejectionReason = meeting.rejectionReason ? `<p>${t('visios.rejectionReason', 'Reason: {reason}').replace('{reason}', escapeHtml(meeting.rejectionReason))}</p>` : '';
+            const rejectionReason = meeting.rejectionReason ? `<p>${t('visios.rejectionReason', 'Reason: {reason}').replace('{reason}', escapeHtml(getLocalizedRejectionReason(meeting.rejectionReason)))}</p>` : '';
             root.innerHTML = `
                 <section class="visio-room visio-room--denied">
                     <h1>${approvalStatus === 'rejected' ? t('visios.requestRejected', 'This request was rejected.') : t('visios.requestPending', 'This request is waiting for admin approval.')}</h1>

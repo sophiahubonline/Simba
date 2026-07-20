@@ -1956,6 +1956,20 @@
 
                             ]
 
+        },
+        zh: {
+            mental_load: [
+                '即使在休息时，我也会一直想着还有哪些事情要做。',
+                '我经常需要同时记住很多事情。',
+                '我感觉大家的心理组织与安排都压在我身上。',
+                '因为始终保持警觉，我很少忘事。',
+                '日常生活中的脑力管理让我感到疲惫。',
+                '我常常提前计划，以免自己被压垮。',
+                '我必须考虑很多别人不一定会注意到的细节。',
+                '这种看不见的负担让我感觉自己从未真正放松。',
+                '我很难真正把任务委托出去。',
+                '心理负担在我的生活中占据了太多空间。'
+            ]
         }
     };
 
@@ -2002,6 +2016,16 @@
         ));
     }
 
+    function getCurrentLanguageCode() {
+        const raw = (window.SimbaI18n && typeof window.SimbaI18n.getCurrentLanguage === 'function')
+            ? window.SimbaI18n.getCurrentLanguage()
+            : 'en';
+        const value = String(raw || 'en').toLowerCase();
+        if (value.indexOf('-') > -1) return value.split('-')[0];
+        if (value.indexOf('_') > -1) return value.split('_')[0];
+        return value;
+    }
+
     function topicIdToPageKey(topicId) {
         return String(topicId || '').replace(/_/g, '-');
     }
@@ -2040,9 +2064,7 @@
     }
 
     function getQuestions(topicId) {
-        const language = (window.SimbaI18n && typeof window.SimbaI18n.getCurrentLanguage === 'function')
-            ? window.SimbaI18n.getCurrentLanguage()
-            : 'en';
+        const language = getCurrentLanguageCode();
         return (localizedQuestionTemplates[language] && localizedQuestionTemplates[language][topicId])
             || questionTemplates[topicId]
             || [];
@@ -2107,9 +2129,7 @@
 
     function buildResultInterpretation(topic, percentage) {
         const topicName = topic.title.toLowerCase();
-        const language = (window.SimbaI18n && typeof window.SimbaI18n.getCurrentLanguage === 'function')
-            ? window.SimbaI18n.getCurrentLanguage()
-            : 'en';
+        const language = getCurrentLanguageCode();
         const messages = {
             fr: [
                 `Tes réponses indiquent un schéma fort et récurrent autour de ${topicName}. Cela ne constitue pas un diagnostic en soi, mais cela suggère que ce thème a un impact clair sur ta façon de penser, de ressentir ou de réagir au quotidien. Si cela te parle, il peut être utile d’explorer ce schéma plus précisément, surtout les situations qui le renforcent et les moments où il s’apaise.`,
@@ -2134,6 +2154,12 @@
                 `Le tue risposte mostrano uno schema notevole intorno a ${topicName}. Alcuni di questi segnali sembrano presenti abbastanza spesso da meritare attenzione, anche se non dominano ogni situazione. Potresti avere a che fare con un miscuglio di abitudini consolidate e reazioni innescate dallo stress; osservare quando questo tema emerge di più e cosa lo intensifica può essere utile.`,
                 `Le tue risposte suggeriscono alcuni segnali legati a ${topicName}, ma per ora non sembrano particolarmente centrali. Questo può significare che il tema è presente in modo più lieve o occasionale, oppure che emerge solo in certi contesti. Può comunque essere utile tenerlo d'occhio, soprattutto se lo schema diventa più forte con il tempo o nei periodi di stress.`,
                 `Le tue risposte suggeriscono che ${topicName} al momento non è molto presente. Questo non significa che il tema non sia importante, solo che in questo test non emerge come uno schema principale. Se in futuro qualcosa cambia, le domande di questo test possono aiutarti a capire se lo schema diventa più visibile.`
+            ],
+            zh: [
+                `你的回答显示，${topicName} 这个模式较强且反复出现。这本身不等于诊断，但说明这个主题正在明显影响你日常的思考、感受或反应方式。如果你对此有共鸣，可以进一步观察它，尤其是哪些情境会加重它、哪些时刻会缓和它。`,
+                `你的回答显示，${topicName} 这一模式较为明显。其中一些信号出现得足够频繁，值得你认真关注，虽然它可能还没有主导所有情境。你可能正同时受到长期习惯和压力触发反应的影响；观察它最常出现的时刻以及会让它加剧的因素会有帮助。`,
+                `你的回答提示，${topicName} 相关信号有一些存在，但目前看起来并不处于核心位置。这可能意味着它以较轻或偶发的方式出现，或只在特定情境下出现。即便如此，也建议继续留意，尤其是在压力期或随着时间推移如果这个模式变得更明显。`,
+                `你的回答提示，目前 ${topicName} 并不明显。这并不代表这个主题不重要，只是它在这次测试中没有表现为主要模式。如果之后状态发生变化，这套问题可以帮助你判断这个模式是否正在变得更清晰。`
             ]
         };
 

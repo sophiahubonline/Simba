@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -35,7 +35,7 @@
             <h2>Create account</h2>
             <form id="signupForm">
                 <div class="form-group">
-                    <label for="email">E‑Mail</label>
+                    <label for="email">Eâ€‘Mail</label>
                     <input id="email" name="email" type="email" required>
                 </div>
                 <div class="form-group">
@@ -66,9 +66,9 @@
             try {
                 // quick ping to detect if server is running
                 const ping = await apiFetch('/api/ping');
-                if (!ping.ok) { alert('API not reachable — please start the server.'); return; }
+                if (!ping.ok) { alert('API not reachable â€” please start the server.'); return; }
             } catch (err) {
-                alert('API not reachable — start the server (ex: cd server && npm start)'); return;
+                alert('API not reachable â€” start the server (ex: cd server && npm start)'); return;
             }
             try {
                 const res = await apiFetch('/api/signup', {
@@ -83,7 +83,7 @@
                 }
                 window.location.href = 'index.html';
             } catch (err) {
-                alert('Network error — check the server console');
+                alert('Network error â€” check the server console');
             }
         });
     </script>
@@ -93,7 +93,7 @@
         <div class="footer-container">
             <div class="footer-content">
                 <p>&copy; 2024 SIMBA PROJECT - Hero's Journey. All rights reserved.</p>
-                <p class="footer-links"><a href="impressum.html">Impressum</a> | <a href="datenschutz.html">Datenschutzerklärung</a></p>
+                <p class="footer-links"><a href="impressum.html">Impressum</a> | <a href="datenschutz.html">DatenschutzerklÃ¤rung</a></p>
             </div>
             <div class="social-links">
                 <a href="https://youtube.com" target="_blank" class="social-icon">
@@ -112,7 +112,7 @@
     <!-- COOKIE BANNER -->
     <div id="cookieBanner" class="cookie-banner" aria-live="polite" hidden>
         <div class="cookie-inner">
-            <p>Wir verwenden Cookies, um diese Website zu verbessern. Mehr dazu in unserer <a href="datenschutz.html">Datenschutzerklärung</a>.</p>
+            <p>Wir verwenden Cookies, um diese Website zu verbessern. Mehr dazu in unserer <a href="datenschutz.html">DatenschutzerklÃ¤rung</a>.</p>
             <div class="cookie-actions">
                 <button id="acceptCookies" class="btn">Alle akzeptieren</button>
                 <button id="rejectCookies" class="btn btn-secondary">Ablehnen</button>
@@ -121,6 +121,7 @@
         </div>
     </div>
 
-    <script src="../js/script.js?v=20260715"></script>
+    <script src="../js/script.js?v=20260720"></script>
 </body>
 </html>
+
